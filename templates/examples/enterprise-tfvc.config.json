@@ -1,0 +1,101 @@
+{
+  "name": "enterprise-app",
+  "workspace": "C:/TFS/EnterpriseSolution/EnterpriseApp",
+  "stateDir": "C:/AgentState/state",
+  "jobs": {
+    "coding": "jobs/coding.md",
+    "plan": "jobs/plan.md"
+  },
+  "agent": {
+    "provider": "codex",
+    "fallback": [],
+    "maxMinutes": 50,
+    "providers": {
+      "codex": {
+        "sandbox": "danger-full-access"
+      }
+    },
+    "scrubEnv": [
+      "AZURE_DEVOPS_PAT",
+      "AZURE_DEVOPS_TFVC_PAT"
+    ],
+    "plan": {
+      "provider": "",
+      "model": "",
+      "maxMinutes": 20
+    }
+  },
+  "tracker": {
+    "type": "clickup",
+    "tokenEnv": "CLICKUP_API_TOKEN",
+    "listId": "901506003801",
+    "tags": [
+      "aug 2026"
+    ],
+    "assignees": [
+      "49449331"
+    ],
+    "skipTags": [
+      "mobile",
+      "ai-skip",
+      "admin-website"
+    ],
+    "statuses": {
+      "new": "not started",
+      "planning": "planning",
+      "approval": "needs approval",
+      "ready": "code ready",
+      "redo": "redo",
+      "resume": "resume",
+      "inDevelopment": "in development",
+      "parked": "development completed",
+      "testing": "ai testing",
+      "pass": "ai test pass",
+      "signOff": "sign off",
+      "blocked": "blocked",
+      "needInfo": "need info"
+    }
+  },
+  "vcs": {
+    "type": "command",
+    "prepare": "Scripts\\AgentPc\\Invoke-TfvcGetLatest.ps1 -Phase Start",
+    "addCommand": "Scripts\\AgentPc\\tf.cmd vc add {file}",
+    "checkinCommand": "Scripts\\AgentPc\\tf.cmd vc checkin /noprompt /comment:\"{message}\" {files}",
+    "refPattern": "changeset\\s+(\\d+)",
+    "addIgnoreFailure": true
+  },
+  "gates": {
+    "build": "msbuild ..\\EnterpriseApp.sln /m /v:minimal",
+    "unitTests": "powershell -NoProfile -File Scripts\\AgentPc\\Run-UnitTests.ps1"
+  },
+  "artifacts": {
+    "dir": "Documentation/Product/_pipeline/{ticket}"
+  },
+  "qa": {
+    "command": "node EnterpriseApp.Qa/run-qa.mjs {ticket}",
+    "exitCodes": {
+      "pass": 0,
+      "fail": 2,
+      "blocked": 3
+    }
+  },
+  "deploy": {
+    "command": "powershell -NoProfile -File Scripts\\AgentPc\\Invoke-AdoDeployReadyBatch.ps1",
+    "batchMin": 10
+  },
+  "limits": {
+    "maxAttempts": 3,
+    "pauseReadyWhenRedoAtLeast": 5,
+    "quotaHoldMinutes": 60
+  },
+  "docs": {
+    "featuresDir": "Documentation/Product",
+    "lessonsDir": "Documentation/Engineering/memory/lessons",
+    "memoryIndex": "Documentation/Engineering/memory/INDEX.md",
+    "featureIndex": "Documentation/Product/FEATURES.md"
+  },
+  "plan": {
+    "enabled": true,
+    "perTick": 2
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "my-project",
+  "workspace": ".",
+  "stateDir": ".pipeline-state",
+  "agent": {
+    "provider": "claude",
+    "fallback": [],
+    "maxMinutes": 50,
+    "model": "",
+    "plan": { "provider": "", "model": "", "maxMinutes": 20 }
+  },
+  "tracker": {
+    "type": "file",
+    "file": "tickets.json"
+  },
+  "vcs": {
+    "type": "none"
+  },
+  "plan": { "enabled": true, "perTick": 2 },
+  "docs": {
+    "featuresDir": "docs/features",
+    "lessonsDir": "docs/memory/lessons",
+    "memoryIndex": "docs/memory/INDEX.md",
+    "featureIndex": "docs/FEATURES.md"
+  },
+  "gates": {
+    "build": "",
+    "unitTests": ""
+  },
+  "qa": {
+    "command": "node qa/run-qa.mjs {ticket}",
+    "exitCodes": { "pass": 0, "fail": 2, "blocked": 3 }
+  },
+  "deploy": {
+    "command": "",
+    "smokeCommand": "",
+    "batchMin": 10
+  },
+  "limits": {
+    "maxAttempts": 3,
+    "pauseReadyWhenRedoAtLeast": 5,
+    "quotaHoldMinutes": 60
+  }
+}

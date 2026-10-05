@@ -1,0 +1,10 @@
+{
+  "name": "agent-pipeline",
+  "version": "0.2.0",
+  "description": "Tool-agnostic, cross-platform pipeline that runs AI coding agents (Codex, Cursor, Claude Code, others) one ticket at a time with scripted QA, check-in and batch deploy.",
+  "type": "module",
+  "bin": { "agent-pipeline": "bin/pipeline.mjs" },
+  "engines": { "node": ">=18.17" },
+  "scripts": { "test": "node --test test/pipeline.test.mjs" },
+  "license": "MIT"
+}

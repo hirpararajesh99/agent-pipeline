@@ -1,0 +1,224 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadConfig, STATUS_KEYS } from './config.mjs';
+import { providerName, providerSpec } from './adapters/agents/index.mjs';
+import { createTracker } from './adapters/trackers/index.mjs';
+import { commandExists } from './exec.mjs';
+import { findContext, isFeatureSlug, rebuildFeatureIndex, seedReadme, slugify } from './docs.mjs';
+import { runOnce } from './orchestrator.mjs';
+import { State } from './state.mjs';
+import { readJson, sleep, writeJson } from './util.mjs';
+
+const HELP = `agent-pipeline - plan, code, verify, test and document tickets with any AI coding tool
+
+Usage: agent-pipeline <command> [options]
+
+Setup
+  init                          Create starter config, AGENTS.md, CLAUDE.md, job files, docs/ skeleton, tickets.json
+  doctor                        Check Node, config, AI tool, tracker, QA command, docs folders
+
+Run
+  run [--job plan|code|all]     One scheduler tick (default: all). Add --dry-run to only show what it would do
+  loop [--interval N]           Repeat "run" every N minutes (default 15)
+  status                        Pause flag, locks, in-flight ticket, deploy queue, holds, recent events
+  pause | unpause               Stop or allow new ticks
+
+Tickets (file tracker; set works with ClickUp too)
+  ticket add --title T [--description D] [--status new|ready] [--id ID]
+  ticket list                   All tickets with status
+  ticket show <id>              Ticket, comments and its plan
+  ticket comment <id> <text>    Add a human comment (answers to questions go here)
+  ticket set <id> <statusKey>   Move a ticket, for example: ticket set T-1 resume
+                                keys: ${STATUS_KEYS.join(', ')}
+
+Docs
+  docs find "<text>"            Show which feature docs and lessons an agent would be told to read
+  docs index                    Rebuild docs/FEATURES.md from the feature READMEs
+  docs scaffold <slug> [--title T]   Create docs/features/<slug>/README.md to fill in
+
+Options
+  --config <file>               Config path (default: PIPELINE_CONFIG or ./pipeline.config.json)
+`;
+
+function parse(argv) {
+  const flags = {};
+  const pos = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--')) {
+      const k = a.slice(2);
+      if (['dry-run', 'once'].includes(k)) flags[k] = true;
+      else flags[k] = argv[++i];
+    } else pos.push(a);
+  }
+  return { flags, pos };
+}
+
+export async function main(argv) {
+  const { flags, pos } = parse(argv);
+  const cmd = pos[0] ?? 'help';
+  const cfgPath = flags.config ?? process.env.PIPELINE_CONFIG ?? 'pipeline.config.json';
+  if (cmd === 'help' || cmd === '--help') return console.log(HELP);
+  if (cmd === 'init') return init();
+
+  const cfg = loadConfig(cfgPath);
+  if (cmd === 'doctor') return doctor(cfg);
+  if (cmd === 'status') return status(cfg);
+  if (cmd === 'pause') { new State(cfg.stateDir).pause(); return console.log('Paused.'); }
+  if (cmd === 'unpause') { new State(cfg.stateDir).unpause(); return console.log('Unpaused.'); }
+  if (cmd === 'docs') return docsCmd(cfg, pos.slice(1), flags);
+  if (cmd === 'ticket') return ticketCmd(cfg, pos.slice(1), flags);
+  if (cmd === 'run') return console.log(JSON.stringify(await runOnce(cfg, {}, { dryRun: !!flags['dry-run'], job: flags.job ?? 'all' }), null, 2));
+  if (cmd === 'loop') {
+    const minutes = Number(flags.interval ?? 15);
+    let stop = false;
+    process.on('SIGINT', () => { stop = true; console.log('\nStopping after the current tick...'); });
+    while (!stop) {
+      const r = await runOnce(cfg, {}, { job: flags.job ?? 'all' });
+      console.log(`${new Date().toISOString()} ${JSON.stringify(r)}`);
+      for (let s = 0; s < minutes * 60 && !stop; s++) await sleep(1000);
+    }
+    return;
+  }
+  console.log(HELP);
+  process.exitCode = 1;
+}
+
+function copyTree(from, to, report) {
+  for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+    const f = path.join(from, e.name);
+    const t = path.join(to, e.name);
+    if (e.isDirectory()) copyTree(f, t, report);
+    else if (fs.existsSync(t)) report(`kept    ${path.relative('.', t)}`);
+    else { fs.mkdirSync(path.dirname(t), { recursive: true }); fs.copyFileSync(f, t); report(`created ${path.relative('.', t)}`); }
+  }
+}
+
+function init() {
+  const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
+  const report = (l) => console.log(l);
+  const one = (from, to) => {
+    if (fs.existsSync(to)) return report(`kept    ${to}`);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.copyFileSync(path.join(src, from), to);
+    report(`created ${to}`);
+  };
+  one('pipeline.config.example.json', 'pipeline.config.json');
+  one('AGENTS.md', 'AGENTS.md');
+  one('CLAUDE.md', 'CLAUDE.md');
+  one('tickets.example.json', 'tickets.json');
+  copyTree(path.join(src, 'jobs'), 'jobs', report);
+  copyTree(path.join(src, 'docs'), 'docs', report);
+  console.log('\nNext: edit pipeline.config.json, then run "agent-pipeline doctor".');
+}
+
+function status(cfg) {
+  const state = new State(cfg.stateDir);
+  const lock = (n) => { const l = readJson(path.join(cfg.stateDir, `${n}.lock`), null); return l ? { pid: l.pid, host: l.host } : null; };
+  const holds = fs.readdirSync(cfg.stateDir).filter((f) => f.startsWith('hold-')).map((f) => {
+    const k = f.replace(/\.json$/, '');
+    const h = state.get(k);
+    return `${k.slice(5)}: ${h.reason} until ${new Date(h.until).toISOString()}`;
+  });
+  console.log(JSON.stringify({
+    paused: state.isPaused(),
+    locks: { code: lock('code'), plan: lock('plan') },
+    inflight: state.get('inflight'),
+    deployReady: state.get('deploy-ready', []).length,
+    heldTickets: state.get('hold', []),
+    providerHolds: holds,
+    recentEvents: state.recentEvents(6),
+  }, null, 2));
+}
+
+async function docsCmd(cfg, args) {
+  const sub = args[0];
+  if (sub === 'index') return console.log(`Wrote ${rebuildFeatureIndex(cfg.workspace, cfg)}`);
+  if (sub === 'find') {
+    const text = args.slice(1).join(' ');
+    if (!text) throw new Error('Usage: docs find "<ticket text>"');
+    const ctx = findContext(cfg.workspace, cfg, { title: text, description: '', comments: [] });
+    return console.log(JSON.stringify(ctx, null, 2));
+  }
+  if (sub === 'scaffold') {
+    const slug = args[1];
+    if (!isFeatureSlug(slug)) throw new Error('Usage: docs scaffold <lowercase-slug> [--title "Display name"]');
+    const { flags } = parse(args);
+    const r = seedReadme(cfg.workspace, cfg, { feature: slug, title: flags.title ?? slug, keywords: [slug.replace(/-/g, ' ')], files: [] });
+    return console.log(`${r.created ? 'Created' : 'Already exists'}: ${r.rel}`);
+  }
+  console.log('Usage: docs find "<text>" | docs index | docs scaffold <slug>');
+}
+
+async function ticketCmd(cfg, args, flags) {
+  const sub = args[0];
+  if (sub === 'add') {
+    if (cfg.tracker.type !== 'file') throw new Error('ticket add only works with the file tracker. Create tickets in your tracker instead.');
+    if (!flags.title) throw new Error('Usage: ticket add --title "..." [--description "..."] [--status new|ready]');
+    const all = readJson(cfg.tracker.file, []);
+    const id = flags.id ?? `T-${all.length + 1}`;
+    if (all.some((t) => t.id === id)) throw new Error(`Ticket ${id} already exists`);
+    const key = flags.status ?? 'new';
+    if (!STATUS_KEYS.includes(key)) throw new Error(`Unknown status key "${key}"`);
+    all.push({ id, title: flags.title, description: flags.description ?? '', status: cfg.tracker.statuses[key], comments: [] });
+    writeJson(cfg.tracker.file, all);
+    return console.log(`Added ${id} as "${cfg.tracker.statuses[key]}"`);
+  }
+  const tracker = createTracker(cfg);
+  const state = new State(cfg.stateDir);
+  if (sub === 'list') {
+    if (cfg.tracker.type !== 'file') throw new Error('ticket list only works with the file tracker.');
+    for (const t of readJson(cfg.tracker.file, [])) console.log(`${t.id.padEnd(12)} ${t.status.padEnd(22)} ${t.title}`);
+    return;
+  }
+  if (sub === 'show') {
+    const t = await tracker.get(args[1]);
+    return console.log(JSON.stringify({ ...t, comments: await tracker.getComments(t.id), plan: state.get(`plan-${t.id}`), pendingPlan: state.get(`plan-${t.id}-pending`) }, null, 2));
+  }
+  if (sub === 'comment') {
+    if (!args[1] || !args[2]) throw new Error('Usage: ticket comment <id> <text>');
+    await tracker.comment(args[1], args.slice(2).join(' '));
+    return console.log('Comment added.');
+  }
+  if (sub === 'set') {
+    if (!args[1] || !STATUS_KEYS.includes(args[2])) throw new Error(`Usage: ticket set <id> <${STATUS_KEYS.join('|')}>`);
+    await tracker.setStatus(args[1], args[2]);
+    return console.log(`${args[1]} -> ${cfg.tracker.statuses[args[2]]}`);
+  }
+  console.log('Usage: ticket add | list | show <id> | comment <id> <text> | set <id> <statusKey>');
+}
+
+function doctor(cfg) {
+  let bad = 0;
+  const check = (ok, label, hint = '') => {
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}${!ok && hint ? ` - ${hint}` : ''}`);
+    if (!ok) bad++;
+  };
+  const major = Number(process.versions.node.split('.')[0]);
+  check(major >= 18, `Node ${process.versions.node}`, 'need Node 18.17 or newer');
+  check(fs.existsSync(cfg.workspace), `workspace ${cfg.workspace}`);
+  check(fs.existsSync(cfg.jobs.coding), `coding job file ${cfg.jobs.coding}`);
+  if (cfg.plan.enabled) {
+    check(fs.existsSync(cfg.jobs.plan), `plan job file ${cfg.jobs.plan}`);
+    check(fs.existsSync(path.join(cfg.workspace, cfg.docs.featuresDir)), `docs folder ${cfg.docs.featuresDir}`, 'run "agent-pipeline init" or create it');
+  }
+  const names = new Set([providerName(cfg, 'code'), providerName(cfg, 'plan'), ...cfg.agent.fallback]);
+  for (const name of names) {
+    try {
+      const spec = providerSpec(name, cfg);
+      check(commandExists(spec.command), `agent "${name}" command "${spec.command}" on PATH`, 'install it and sign in once');
+    } catch (e) { check(false, `agent "${name}"`, e.message); }
+  }
+  if (cfg.tracker.type === 'clickup') check(!!process.env[cfg.tracker.tokenEnv], `env ${cfg.tracker.tokenEnv} set`);
+  else check(fs.existsSync(cfg.tracker.file), `tickets file ${cfg.tracker.file}`);
+  if (cfg.vcs.type === 'git') check(commandExists('git'), 'git on PATH');
+  for (const [label, cmd] of [['gates.build', cfg.gates.build], ['gates.unitTests', cfg.gates.unitTests], ['qa.command', cfg.qa.command], ['deploy.command', cfg.deploy.command]]) {
+    if (!cmd) continue;
+    const first = cmd.trim().startsWith('"') ? cmd.trim().slice(1).split('"')[0] : cmd.trim().split(/\s+/)[0];
+    check(fs.existsSync(first) || commandExists(first), `${label} program "${first}"`);
+  }
+  console.log(bad ? `\n${bad} problem(s) found.` : '\nAll checks passed.');
+  process.exitCode = bad ? 1 : 0;
+}
+export { slugify };

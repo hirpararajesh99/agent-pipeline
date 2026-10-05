@@ -1,0 +1,9 @@
+[
+  {
+    "id": "DEMO-1",
+    "title": "Add a health check endpoint",
+    "description": "What: add GET /health that returns 200 and the text ok.\nWhere: the web app's routing file.\nExpected result: opening /health shows ok.\nDo not change: existing routes.",
+    "status": "not started",
+    "comments": []
+  }
+]
