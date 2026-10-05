@@ -21,6 +21,7 @@ Setup
 Run
   run [--job plan|code|all]     One scheduler tick (default: all). Add --dry-run to only show what it would do
   loop [--interval N]           Repeat "run" every N minutes (default 15)
+  serve [--port N]              Start the browser dashboard (default port 3000)
   status                        Pause flag, locks, in-flight ticket, deploy queue, holds, recent events
   pause | unpause               Stop or allow new ticks
 
@@ -69,6 +70,7 @@ export async function main(argv) {
   if (cmd === 'unpause') { new State(cfg.stateDir).unpause(); return console.log('Unpaused.'); }
   if (cmd === 'docs') return docsCmd(cfg, pos.slice(1), flags);
   if (cmd === 'ticket') return ticketCmd(cfg, pos.slice(1), flags);
+  if (cmd === 'serve') return (await import('./server.mjs')).createServer(cfg, { port: Number(flags.port ?? 3000) });
   if (cmd === 'run') return console.log(JSON.stringify(await runOnce(cfg, {}, { dryRun: !!flags['dry-run'], job: flags.job ?? 'all' }), null, 2));
   if (cmd === 'loop') {
     const minutes = Number(flags.interval ?? 15);

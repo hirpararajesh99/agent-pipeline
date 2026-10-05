@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agent-pipeline dashboard</title>
+  <meta name="description" content="Real-time dashboard for agent-pipeline — AI coding agent orchestration">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design tokens ──────────────────────────────────────────────────── */
+    :root {
+      --bg:           #070b14;
+      --surface:      #0c1428;
+      --surface-2:    #111e35;
+      --border:       #1c2b47;
+      --border-2:     #243855;
+      --accent:       #6366f1;
+      --accent-dim:   rgba(99,102,241,.12);
+      --accent-glow:  rgba(99,102,241,.3);
+      --success:      #22c55e;
+      --success-dim:  rgba(34,197,94,.12);
+      --warning:      #f59e0b;
+      --warning-dim:  rgba(245,158,11,.12);
+      --danger:       #ef4444;
+      --danger-dim:   rgba(239,68,68,.12);
+      --info:         #38bdf8;
+      --info-dim:     rgba(56,189,248,.12);
+      --text:         #e2e8f0;
+      --text-2:       #94a3b8;
+      --text-3:       #475569;
+      --mono:         'JetBrains Mono', monospace;
+      --sans:         'Inter', sans-serif;
+      --r:            10px;
+      --r-sm:         6px;
+      --hh:           56px; /* header height */
+    }
+
+    /* ── Reset ──────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+    a { color: var(--accent); text-decoration: none; }
+    button { font-family: var(--sans); cursor: pointer; border: none; outline: none; }
+    pre, code { font-family: var(--mono); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
+    #header {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--hh); z-index: 100;
+      display: flex; align-items: center; gap: 12px; padding: 0 20px;
+      background: rgba(7,11,20,.85); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    #main {
+      display: flex; height: 100vh; padding-top: var(--hh);
+      overflow: hidden;
+    }
+    #left-panel {
+      width: 340px; min-width: 340px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column; gap: 1px;
+      background: var(--bg);
+    }
+    #right-panel {
+      flex: 1; overflow-y: auto; padding: 24px;
+      background: var(--bg);
+    }
+
+    /* ── Header elements ─────────────────────────────────────────────────── */
+    #logo {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 600; font-size: 15px; color: var(--text);
+      white-space: nowrap;
+    }
+    #logo svg { opacity: .7; }
+    #status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--success); flex-shrink: 0;
+      transition: background .3s;
+    }
+    #status-dot.paused  { background: var(--warning); }
+    #status-dot.idle    { background: var(--text-3); }
+    #status-dot.running { background: var(--success); animation: pulse-dot 2s infinite; }
+    #status-dot.error   { background: var(--danger); animation: pulse-dot 1s infinite; }
+    #status-text {
+      font-size: 13px; color: var(--text-2); flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #conn-badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 20px;
+      background: var(--danger-dim); color: var(--danger);
+      display: none;
+    }
+    #conn-badge.show { display: block; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: var(--r-sm);
+      font-size: 13px; font-weight: 500;
+      transition: all .15s; white-space: nowrap;
+    }
+    .btn-ghost {
+      background: transparent; color: var(--text-2);
+      border: 1px solid var(--border-2);
+    }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-2); }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .btn-primary:hover { filter: brightness(1.15); }
+    .btn-danger  { background: var(--danger-dim);  color: var(--danger);  border: 1px solid var(--danger); }
+    .btn-danger:hover  { background: var(--danger); color: #fff; }
+    .btn-success { background: var(--success-dim); color: var(--success); border: 1px solid var(--success); }
+    .btn-success:hover { background: var(--success); color: #fff; }
+    .btn-warning { background: var(--warning-dim); color: var(--warning); border: 1px solid var(--warning); }
+    .btn-warning:hover { background: var(--warning); color: #000; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+    /* Run dropdown */
+    #run-wrap { position: relative; }
+    #run-menu {
+      position: absolute; top: calc(100% + 6px); right: 0; z-index: 200;
+      background: var(--surface-2); border: 1px solid var(--border-2);
+      border-radius: var(--r); overflow: hidden; min-width: 140px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      display: none;
+    }
+    #run-menu.open { display: block; animation: fadeSlide .12s ease; }
+    #run-menu button {
+      display: flex; width: 100%; padding: 10px 16px;
+      font-size: 13px; color: var(--text-2); background: none;
+      text-align: left; transition: all .1s;
+    }
+    #run-menu button:hover { background: var(--accent-dim); color: var(--text); }
+
+    /* ── Section cards (left panel) ──────────────────────────────────────── */
+    .section { padding: 16px; border-bottom: 1px solid var(--border); }
+    .section-title {
+      font-size: 11px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-3); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title .count {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 1px 7px; font-size: 11px;
+      color: var(--text-2); font-weight: 500; letter-spacing: 0;
+    }
+
+    /* ── NOW card ────────────────────────────────────────────────────────── */
+    #now-card {
+      border-radius: var(--r); padding: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      cursor: pointer; transition: border-color .15s;
+    }
+    #now-card:hover { border-color: var(--accent); }
+    #now-card.empty { opacity: .5; cursor: default; }
+    #now-card.empty:hover { border-color: var(--border); }
+    .now-title { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 8px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .now-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .progress-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar  { height: 100%; border-radius: 2px; transition: width 1s linear, background .3s; }
+    .prog-ok      { background: linear-gradient(90deg, var(--accent), var(--info)); }
+    .prog-warn    { background: var(--warning); }
+    .prog-danger  { background: var(--danger); }
+    .now-time { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+
+    /* ── Queue list ──────────────────────────────────────────────────────── */
+    .ticket-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--r-sm);
+      cursor: pointer; transition: background .1s;
+    }
+    .ticket-row:hover { background: var(--surface-2); }
+    .ticket-row.selected { background: var(--accent-dim); }
+    .ticket-id {
+      font-family: var(--mono); font-size: 11px; color: var(--text-3);
+      white-space: nowrap; min-width: 44px;
+    }
+    .ticket-title { flex: 1; color: var(--text-2); font-size: 13px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ticket-row.selected .ticket-title { color: var(--text); }
+    .attempts-badge {
+      font-size: 11px; color: var(--warning); background: var(--warning-dim);
+      border-radius: 20px; padding: 1px 7px; white-space: nowrap;
+    }
+
+    /* ── Status badges ───────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 500; border-radius: 20px; padding: 2px 8px;
+      white-space: nowrap;
+    }
+    .badge-accent  { background: var(--accent-dim);  color: var(--accent); }
+    .badge-success { background: var(--success-dim); color: var(--success); }
+    .badge-warning { background: var(--warning-dim); color: var(--warning); }
+    .badge-danger  { background: var(--danger-dim);  color: var(--danger); }
+    .badge-info    { background: var(--info-dim);    color: var(--info); }
+    .badge-dim     { background: var(--surface-2);   color: var(--text-3); border: 1px solid var(--border); }
+
+    /* ── Deploy batch ────────────────────────────────────────────────────── */
+    #deploy-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px;
+    }
+    #deploy-count { font-size: 22px; font-weight: 700; color: var(--success); }
+    #deploy-label { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+    /* ── Events timeline ─────────────────────────────────────────────────── */
+    .event-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 5px 0; animation: fadeIn .3s ease;
+    }
+    .event-icon { font-size: 13px; width: 20px; flex-shrink: 0; margin-top: 1px; }
+    .event-body { flex: 1; min-width: 0; }
+    .event-name { font-size: 12px; font-weight: 500; color: var(--text-2); }
+    .event-ticket { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+    .event-time { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+
+    /* ── Provider hold banner ───────────────────────────────────────────── */
+    #holds-banner {
+      margin: 12px 16px; padding: 10px 14px;
+      border-radius: var(--r-sm); background: var(--warning-dim);
+      border: 1px solid var(--warning); font-size: 12px; color: var(--warning);
+      display: none;
+    }
+    #holds-banner.show { display: block; }
+
+    /* ── Right panel: welcome / detail ───────────────────────────────────── */
+    #welcome {
+      height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+      text-align: center; opacity: .5;
+    }
+    #welcome svg { opacity: .3; }
+    #welcome h2 { font-size: 18px; font-weight: 600; color: var(--text); }
+    #welcome p  { font-size: 13px; color: var(--text-3); }
+    #shortcuts { margin-top: 24px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .shortcut { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+    .key {
+      display: inline-block; padding: 2px 8px;
+      border: 1px solid var(--border-2); border-radius: 4px;
+      font-family: var(--mono); font-size: 11px; color: var(--text-2);
+      background: var(--surface);
+    }
+
+    /* Ticket detail */
+    #detail { display: none; animation: slideIn .2s ease; }
+    #detail.show { display: block; }
+    #detail-header { margin-bottom: 20px; }
+    #detail-id { font-family: var(--mono); font-size: 12px; color: var(--text-3); margin-bottom: 6px; }
+    #detail-title { font-size: 22px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+    #detail-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    #detail-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .tab {
+      padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--text-3);
+      background: none; border-bottom: 2px solid transparent;
+      cursor: pointer; transition: all .15s; margin-bottom: -1px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn .2s ease; }
+
+    /* Detail content blocks */
+    .detail-section { margin-bottom: 24px; }
+    .detail-section h3 {
+      font-size: 11px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-3); margin-bottom: 12px;
+    }
+    .detail-grid { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; font-size: 13px; }
+    .detail-label { color: var(--text-3); }
+    .detail-value { color: var(--text); }
+    .ac-list, .scope-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .ac-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 14px; border-radius: var(--r-sm);
+      background: var(--surface); border: 1px solid var(--border); font-size: 13px;
+    }
+    .ac-id { font-family: var(--mono); font-size: 11px; color: var(--accent); white-space: nowrap; }
+    .qa-step {
+      padding: 12px 14px; border-radius: var(--r-sm);
+      background: var(--surface); border: 1px solid var(--border);
+      margin-bottom: 8px; font-size: 13px;
+    }
+    .qa-action { font-weight: 500; color: var(--text); margin-bottom: 4px; }
+    .qa-assert { color: var(--success); font-size: 12px; margin-bottom: 4px; }
+    .qa-covers { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+    .failure-box {
+      padding: 16px; border-radius: var(--r); border-left: 3px solid var(--danger);
+      background: var(--danger-dim); font-family: var(--mono); font-size: 12px;
+      color: #fca5a5; white-space: pre-wrap; word-break: break-all; line-height: 1.7;
+      max-height: 400px; overflow-y: auto;
+    }
+    .lesson-card {
+      padding: 16px; border-radius: var(--r);
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .lesson-card .lesson-row {
+      display: grid; grid-template-columns: 100px 1fr; gap: 8px 12px;
+      font-size: 13px; margin-bottom: 8px;
+    }
+    .lesson-card .lesson-row:last-child { margin-bottom: 0; }
+    .lesson-label { color: var(--text-3); font-size: 12px; }
+    .comments-list { display: flex; flex-direction: column; gap: 8px; }
+    .comment-bubble {
+      padding: 10px 14px; border-radius: var(--r-sm);
+      background: var(--surface); border: 1px solid var(--border);
+      font-size: 13px; line-height: 1.6;
+    }
+    .comment-bubble.pipeline { border-color: var(--accent-dim); color: var(--text-3); font-size: 12px; }
+    .files-list {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .file-chip {
+      font-family: var(--mono); font-size: 12px; padding: 4px 10px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm);
+      color: var(--info); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .empty-state { padding: 40px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 12px 18px; border-radius: var(--r-sm);
+      font-size: 13px; font-weight: 500;
+      box-shadow: 0 4px 24px rgba(0,0,0,.5);
+      animation: slideToast .2s ease;
+    }
+    .toast-info    { background: var(--surface-2); color: var(--text); border: 1px solid var(--border-2); }
+    .toast-success { background: var(--success-dim); color: var(--success); border: 1px solid var(--success); }
+    .toast-error   { background: var(--danger-dim);  color: var(--danger);  border: 1px solid var(--danger); }
+    .toast-warning { background: var(--warning-dim); color: var(--warning); border: 1px solid var(--warning); }
+
+    /* ── Animations ──────────────────────────────────────────────────────── */
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
+      50%       { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+    }
+    @keyframes fadeIn      { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideIn     { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideToast  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeSlide   { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header id="header">
+  <div id="logo">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect x="2" y="2" width="7" height="7" rx="2" fill="#6366f1"/>
+      <rect x="11" y="2" width="7" height="7" rx="2" fill="#38bdf8" opacity=".7"/>
+      <rect x="2" y="11" width="7" height="7" rx="2" fill="#22c55e" opacity=".7"/>
+      <rect x="11" y="11" width="7" height="7" rx="2" fill="#f59e0b" opacity=".7"/>
+    </svg>
+    agent-pipeline
+  </div>
+
+  <span id="status-dot" class="idle"></span>
+  <span id="status-text">Connecting…</span>
+  <span id="conn-badge">● Disconnected</span>
+
+  <div style="flex:1"></div>
+
+  <button id="btn-pause" class="btn btn-ghost btn-sm" onclick="togglePause()">⏸ Pause</button>
+
+  <div id="run-wrap">
+    <button class="btn btn-primary btn-sm" onclick="toggleRunMenu()">▶ Run ▾</button>
+    <div id="run-menu">
+      <button onclick="runJob('all')">▶ Run All</button>
+      <button onclick="runJob('plan')">📋 Plan only</button>
+      <button onclick="runJob('code')">💻 Code only</button>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────────────────── -->
+<div id="main">
+
+  <!-- Left panel -->
+  <aside id="left-panel">
+
+    <!-- Provider hold banner -->
+    <div id="holds-banner"></div>
+
+    <!-- NOW -->
+    <div class="section">
+      <div class="section-title">Now</div>
+      <div id="now-card" class="empty" onclick="onNowClick()">
+        <div class="now-title" id="now-title">Pipeline is idle</div>
+        <div class="now-meta" id="now-meta"></div>
+        <div class="progress-wrap"><div id="progress-bar" class="progress-bar prog-ok" style="width:0%"></div></div>
+        <div class="now-time" id="now-time"></div>
+      </div>
+    </div>
+
+    <!-- Queue -->
+    <div class="section">
+      <div class="section-title">
+        Queue <span class="count" id="queue-count">0</span>
+      </div>
+      <div id="queue-list"><div class="empty-state">No tickets in queue</div></div>
+    </div>
+
+    <!-- Deploy batch -->
+    <div class="section" id="deploy-section" style="display:none">
+      <div class="section-title">Deploy batch</div>
+      <div id="deploy-card">
+        <div>
+          <div id="deploy-count">0</div>
+          <div id="deploy-label">tickets ready</div>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="runJob('deploy')">⬆ Deploy All</button>
+      </div>
+    </div>
+
+    <!-- Events -->
+    <div class="section" style="flex:1">
+      <div class="section-title">Recent events</div>
+      <div id="events-list"><div class="empty-state">No events yet</div></div>
+    </div>
+
+  </aside>
+
+  <!-- Right panel -->
+  <main id="right-panel">
+
+    <!-- Welcome -->
+    <div id="welcome">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <rect x="4" y="4" width="18" height="18" rx="5" fill="#6366f1"/>
+        <rect x="26" y="4" width="18" height="18" rx="5" fill="#38bdf8" opacity=".6"/>
+        <rect x="4" y="26" width="18" height="18" rx="5" fill="#22c55e" opacity=".6"/>
+        <rect x="26" y="26" width="18" height="18" rx="5" fill="#f59e0b" opacity=".6"/>
+      </svg>
+      <h2>agent-pipeline</h2>
+      <p>Click any ticket to view its plan, QA steps, and failure details.</p>
+      <div id="shortcuts">
+        <div class="shortcut"><span class="key">P</span> Pause / Unpause</div>
+        <div class="shortcut"><span class="key">R</span> Run now</div>
+        <div class="shortcut"><span class="key">Esc</span> Close detail</div>
+      </div>
+      <div id="config-info" style="margin-top:32px; font-size:12px; color:var(--text-3)"></div>
+    </div>
+
+    <!-- Ticket detail -->
+    <div id="detail">
+      <div id="detail-header">
+        <div id="detail-id"></div>
+        <div id="detail-title"></div>
+        <div id="detail-meta"></div>
+        <div id="detail-actions"></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('overview')">Overview</button>
+        <button class="tab" onclick="switchTab('plan')" id="tab-plan">Plan</button>
+        <button class="tab" onclick="switchTab('qa')" id="tab-qa">QA Steps</button>
+        <button class="tab" onclick="switchTab('failure')" id="tab-failure">Failure</button>
+        <button class="tab" onclick="switchTab('comments')" id="tab-comments">Comments</button>
+      </div>
+
+      <div id="panel-overview" class="tab-panel active"></div>
+      <div id="panel-plan"     class="tab-panel"></div>
+      <div id="panel-qa"       class="tab-panel"></div>
+      <div id="panel-failure"  class="tab-panel"></div>
+      <div id="panel-comments" class="tab-panel"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+'use strict';
+/* ── State ──────────────────────────────────────────────────────────────── */
+let pipeline = {};            // latest snapshot from SSE
+let selectedId = null;        // ticket ID open in detail panel
+let selectedData = null;      // fetched ticket data
+let isPaused = false;
+
+/* ── SSE connection ──────────────────────────────────────────────────────── */
+let sse;
+function connect() {
+  sse = new EventSource('/api/events');
+  sse.onopen = () => {
+    document.getElementById('conn-badge').classList.remove('show');
+  };
+  sse.onmessage = ({ data }) => {
+    try {
+      const msg = JSON.parse(data);
+      if (msg.type === 'state') {
+        pipeline = msg.payload;
+        isPaused = pipeline.paused;
+        render();
+      } else if (msg.type === 'run-result') {
+        const r = msg.payload;
+        toast(`Run finished: ${r.status}${r.ticket ? ' · ' + r.ticket : ''}`, r.status === 'pass' ? 'success' : 'info');
+      } else if (msg.type === 'run-error') {
+        toast('Run error: ' + msg.error, 'error');
+      } else if (msg.type === 'action') {
+        if (msg.action === 'paused')   toast('Pipeline paused', 'warning');
+        if (msg.action === 'unpaused') toast('Pipeline running', 'success');
+        if (msg.action === 'approved') toast(`Ticket ${msg.ticket} approved`, 'success');
+      }
+    } catch { /* ignore malformed */ }
+  };
+  sse.onerror = () => {
+    document.getElementById('conn-badge').classList.add('show');
+    document.getElementById('status-dot').className = 'error';
+    document.getElementById('status-text').textContent = 'Connection lost — retrying…';
+    sse.close();
+    setTimeout(connect, 4000);
+  };
+}
+connect();
+
+/* ── Progress bar ticker ─────────────────────────────────────────────────── */
+setInterval(() => {
+  const inf = pipeline.inflight;
+  if (!inf?.startedAt) return;
+  const elapsed = (Date.now() - new Date(inf.startedAt)) / 60000;
+  const max = pipeline.config?.maxMinutes || 50;
+  const pct = Math.min(100, (elapsed / max) * 100);
+  const bar = document.getElementById('progress-bar');
+  if (bar) {
+    bar.style.width = pct + '%';
+    bar.className = 'progress-bar ' + (pct > 85 ? 'prog-danger' : pct > 60 ? 'prog-warn' : 'prog-ok');
+  }
+  const t = document.getElementById('now-time');
+  if (t) t.textContent = `${Math.floor(elapsed)}m elapsed of ${max}m max`;
+}, 1000);
+
+/* ── Render ──────────────────────────────────────────────────────────────── */
+function render() {
+  renderHeader();
+  renderNow();
+  renderQueue();
+  renderDeploy();
+  renderEvents();
+  renderHolds();
+  renderConfigInfo();
+}
+
+function renderHeader() {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  const btn  = document.getElementById('btn-pause');
+  const inf  = pipeline.inflight;
+
+  if (pipeline.paused) {
+    dot.className = 'paused';
+    text.textContent = 'Paused';
+    btn.textContent = '▶ Resume';
+  } else if (inf) {
+    dot.className = 'running';
+    text.textContent = `${inf.stage === 'coding' ? '💻' : inf.stage === 'parked' ? '🅿' : '🧪'} ${inf.ticketId}: ${inf.title}`;
+    btn.textContent = '⏸ Pause';
+  } else {
+    dot.className = 'idle';
+    text.textContent = 'Idle — waiting for tickets';
+    btn.textContent = '⏸ Pause';
+  }
+}
+
+function renderNow() {
+  const inf  = pipeline.inflight;
+  const card = document.getElementById('now-card');
+  const ttl  = document.getElementById('now-title');
+  const meta = document.getElementById('now-meta');
+
+  if (!inf) {
+    card.className = 'empty';
+    card.dataset.id = '';
+    ttl.textContent = pipeline.paused ? 'Pipeline is paused' : 'Pipeline is idle';
+    meta.innerHTML = '';
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('now-time').textContent = '';
+    return;
+  }
+  card.className = '';
+  card.dataset.id = inf.ticketId;
+  ttl.textContent = `${inf.ticketId}: ${inf.title}`;
+  meta.innerHTML = `
+    ${badge(inf.stage, stageColor(inf.stage))}
+    ${pipeline.config?.agentProvider ? badge(pipeline.config.agentProvider, 'dim') : ''}
+  `;
+}
+
+function renderQueue() {
+  const list  = document.getElementById('queue-list');
+  const count = document.getElementById('queue-count');
+  const q     = pipeline.queue || [];
+  count.textContent = q.length;
+  if (!q.length) {
+    list.innerHTML = '<div class="empty-state">No tickets in queue</div>';
+    return;
+  }
+  list.innerHTML = q.map(t => {
+    const att = (pipeline.attempts || {})[t.id];
+    const isRedo = t.statusKey === 'redo';
+    return `<div class="ticket-row${selectedId === t.id ? ' selected' : ''}" onclick="selectTicket('${t.id}')" data-id="${t.id}">
+      <span class="ticket-id">${t.id}</span>
+      ${isRedo ? '<span style="color:var(--warning)">↩</span>' : '<span style="color:var(--info)">►</span>'}
+      <span class="ticket-title">${esc(t.title)}</span>
+      ${att ? `<span class="attempts-badge">${att}/${pipeline.config?.maxAttempts||3}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderDeploy() {
+  const sec   = document.getElementById('deploy-section');
+  const ready = pipeline.deployReady || [];
+  if (!ready.length) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  document.getElementById('deploy-count').textContent = ready.length;
+  const need = pipeline.config?.batchMin || 10;
+  document.getElementById('deploy-label').textContent =
+    `tickets ready · ${ready.length >= need ? 'batch full!' : `${need - ready.length} more to batch`}`;
+}
+
+function renderEvents() {
+  const list = document.getElementById('events-list');
+  const evts = (pipeline.recentEvents || []).slice().reverse();
+  if (!evts.length) { list.innerHTML = '<div class="empty-state">No events yet</div>'; return; }
+  list.innerHTML = evts.map(e => `
+    <div class="event-item">
+      <span class="event-icon">${eventIcon(e.event)}</span>
+      <div class="event-body">
+        <span class="event-name">${e.event}</span>
+        ${e.ticket ? `<span class="event-ticket"> · ${e.ticket}</span>` : ''}
+      </div>
+      <span class="event-time">${timeAgo(e.ts)}</span>
+    </div>
+  `).join('');
+}
+
+function renderHolds() {
+  const banner = document.getElementById('holds-banner');
+  const holds  = pipeline.providerHolds || [];
+  if (!holds.length) { banner.classList.remove('show'); return; }
+  banner.classList.add('show');
+  banner.innerHTML = '⏸ Provider hold: ' + holds.map(h => `${h.provider} (${h.reason})`).join(', ');
+}
+
+function renderConfigInfo() {
+  const el  = document.getElementById('config-info');
+  const cfg = pipeline.config;
+  if (!cfg || el.dataset.rendered) return;
+  el.dataset.rendered = '1';
+  el.innerHTML = `${cfg.name || 'project'} · ${cfg.agentProvider || '?'} agent · ${cfg.trackerType} tracker · ${cfg.vcsType} vcs`;
+}
+
+/* ── Ticket detail ───────────────────────────────────────────────────────── */
+async function selectTicket(id) {
+  selectedId = id;
+  document.querySelectorAll('.ticket-row').forEach(r => r.classList.toggle('selected', r.dataset.id === id));
+  document.getElementById('now-card').classList.toggle('selected', document.getElementById('now-card').dataset.id === id);
+
+  document.getElementById('welcome').style.display = 'none';
+  const detail = document.getElementById('detail');
+  detail.classList.remove('show'); // reset animation
+
+  try {
+    const res  = await fetch(`/api/ticket/${encodeURIComponent(id)}`);
+    selectedData = await res.json();
+    if (res.ok) renderDetail(selectedData);
+    else        toast(selectedData.error || 'Could not load ticket', 'error');
+  } catch (e) { toast('Could not reach server', 'error'); }
+}
+
+function onNowClick() {
+  const id = document.getElementById('now-card').dataset.id;
+  if (id) selectTicket(id);
+}
+
+function closeDetail() {
+  selectedId = null; selectedData = null;
+  document.getElementById('detail').classList.remove('show');
+  document.getElementById('welcome').style.display = '';
+  document.querySelectorAll('.ticket-row').forEach(r => r.classList.remove('selected'));
+  document.getElementById('now-card').classList.remove('selected');
+}
+
+function renderDetail(t) {
+  document.getElementById('detail-id').textContent = t.id;
+  document.getElementById('detail-title').textContent = t.title || '(no title)';
+
+  // Meta badges
+  const statusKey = t.statusKey || '';
+  document.getElementById('detail-meta').innerHTML = `
+    ${badge(t.status || statusKey, statusBadgeClass(statusKey))}
+    ${t.attempts ? `<span class="badge badge-warning">Attempt ${t.attempts}/${pipeline.config?.maxAttempts||3}</span>` : ''}
+    ${t.plan ? badge('Planned v' + (t.plan.version||1), 'dim') : ''}
+  `;
+
+  // Action buttons
+  const actions = [];
+  if (statusKey === 'approval') actions.push(`<button class="btn btn-success btn-sm" onclick="approveTicket('${t.id}')">✓ Approve plan</button>`);
+  if (['blocked','needInfo'].includes(statusKey)) actions.push(`<button class="btn btn-warning btn-sm" onclick="setStatus('${t.id}','resume')">↺ Set to Resume</button>`);
+  if (['blocked','redo'].includes(statusKey)) actions.push(`<button class="btn btn-ghost btn-sm" onclick="setStatus('${t.id}','ready')">► Set to Ready</button>`);
+  document.getElementById('detail-actions').innerHTML = actions.join('');
+
+  // Tab visibility
+  document.getElementById('tab-plan').style.display     = t.plan ? '' : 'none';
+  document.getElementById('tab-qa').style.display       = t.plan?.qaFocus || 'none';
+  document.getElementById('tab-failure').style.display  = (t.failure || t.planFailure) ? '' : 'none';
+  document.getElementById('tab-comments').style.display = t.comments?.length ? '' : 'none';
+
+  // Panel: Overview
+  document.getElementById('panel-overview').innerHTML = `
+    <div class="detail-section">
+      <h3>Ticket</h3>
+      <div class="detail-grid">
+        <span class="detail-label">Status</span>  <span class="detail-value">${t.status || '—'}</span>
+        <span class="detail-label">Type</span>    <span class="detail-value">${t.plan?.type || '—'}</span>
+        <span class="detail-label">Feature</span> <span class="detail-value">${t.plan?.feature || '—'}</span>
+        ${t.plan?.summary ? `<span class="detail-label">Summary</span><span class="detail-value">${esc(t.plan.summary)}</span>` : ''}
+      </div>
+    </div>
+    ${t.description ? `<div class="detail-section"><h3>Description</h3><p style="font-size:13px;color:var(--text-2);line-height:1.7">${esc(t.description)}</p></div>` : ''}
+    ${t.plan?.limitations ? `<div class="detail-section"><h3>Limitations</h3><p style="font-size:13px;color:var(--text-3)">${esc(t.plan.limitations)}</p></div>` : ''}
+  `;
+
+  // Panel: Plan
+  document.getElementById('panel-plan').innerHTML = t.plan ? `
+    <div class="detail-section">
+      <h3>Decision</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+        ${badge(t.plan.decision, t.plan.decision === 'clear' ? 'success' : t.plan.decision === 'high-risk' ? 'danger' : 'warning')}
+        ${t.plan.riskReason ? `<span style="font-size:12px;color:var(--text-3)">${esc(t.plan.riskReason)}</span>` : ''}
+        ${t.plan.question   ? `<span style="font-size:12px;color:var(--warning)">${esc(t.plan.question)}</span>` : ''}
+      </div>
+    </div>
+    ${t.plan.acceptance?.length ? `
+    <div class="detail-section">
+      <h3>Acceptance checks</h3>
+      <ul class="ac-list">
+        ${t.plan.acceptance.map(a => `
+          <li class="ac-item">
+            <span class="ac-id">${a.id}</span>
+            <span>${esc(a.text)}</span>
+          </li>`).join('')}
+      </ul>
+    </div>` : ''}
+    ${t.plan.scope?.length ? `
+    <div class="detail-section">
+      <h3>Scope</h3>
+      <ul class="scope-list" style="font-size:13px;color:var(--text-2);padding-left:16px;list-style:disc">
+        ${t.plan.scope.map(s => `<li>${esc(s)}</li>`).join('')}
+      </ul>
+    </div>` : ''}
+    ${t.plan.files?.length ? `
+    <div class="detail-section">
+      <h3>Files likely to change</h3>
+      <div class="files-list">${t.plan.files.map(f => `<div class="file-chip">${esc(f)}</div>`).join('')}</div>
+    </div>` : ''}
+    ${t.plan.risks?.length ? `
+    <div class="detail-section">
+      <h3>Risks</h3>
+      <ul style="font-size:13px;color:var(--text-3);padding-left:16px;list-style:disc">
+        ${t.plan.risks.map(r => `<li>${esc(r)}</li>`).join('')}
+      </ul>
+    </div>` : ''}
+  ` : '<div class="empty-state">No plan yet</div>';
+
+  // Panel: QA
+  const qaSteps = t.plan?.qaFocus ? [] : [];  // placeholder until park.json is parsed
+  document.getElementById('panel-qa').innerHTML = `
+    ${t.plan?.qaFocus ? `<div class="detail-section"><h3>QA focus</h3><p style="font-size:13px;color:var(--text-2)">${esc(t.plan.qaFocus)}</p></div>` : ''}
+    <div class="empty-state" style="padding-top:8px">QA steps are available after the agent completes the code job.</div>
+  `;
+
+  // Panel: Failure
+  document.getElementById('panel-failure').innerHTML = (t.failure || t.planFailure) ? `
+    ${t.failure ? `
+    <div class="detail-section">
+      <h3>Code failure</h3>
+      <div class="failure-box">${esc(t.failure)}</div>
+    </div>` : ''}
+    ${t.planFailure ? `
+    <div class="detail-section">
+      <h3>Plan failure</h3>
+      <div class="failure-box">${esc(t.planFailure)}</div>
+    </div>` : ''}
+  ` : '<div class="empty-state">No failure recorded</div>';
+
+  // Panel: Comments
+  const humanComments = (t.comments || []).filter(c => !c.startsWith('[agent-pipeline]'));
+  const pipeComments  = (t.comments || []).filter(c =>  c.startsWith('[agent-pipeline]'));
+  document.getElementById('panel-comments').innerHTML = t.comments?.length ? `
+    ${humanComments.length ? `
+    <div class="detail-section">
+      <h3>Human comments</h3>
+      <div class="comments-list">
+        ${humanComments.map(c => `<div class="comment-bubble">${esc(c)}</div>`).join('')}
+      </div>
+    </div>` : ''}
+    ${pipeComments.length ? `
+    <div class="detail-section">
+      <h3>Pipeline messages</h3>
+      <div class="comments-list">
+        ${pipeComments.map(c => `<div class="comment-bubble pipeline">${esc(c.replace('[agent-pipeline] ', ''))}</div>`).join('')}
+      </div>
+    </div>` : ''}
+  ` : '<div class="empty-state">No comments</div>';
+
+  switchTab('overview');
+  const detail = document.getElementById('detail');
+  detail.classList.add('show');
+  // void detail.offsetWidth; // force reflow for animation
+}
+
+/* ── Tab switching ───────────────────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.getAttribute('onclick').includes(`'${name}'`));
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel-' + name);
+  });
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────────── */
+async function togglePause() {
+  const url = isPaused ? '/api/unpause' : '/api/pause';
+  await fetch(url, { method: 'POST' });
+}
+
+function toggleRunMenu() {
+  document.getElementById('run-menu').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#run-wrap')) document.getElementById('run-menu').classList.remove('open');
+});
+
+async function runJob(job) {
+  document.getElementById('run-menu').classList.remove('open');
+  toast(`Starting ${job} job…`, 'info');
+  await fetch(`/api/run?job=${job}`, { method: 'POST' });
+}
+
+async function approveTicket(id) {
+  await fetch(`/api/approve/${encodeURIComponent(id)}`, { method: 'POST' });
+  toast(`Ticket ${id} approved`, 'success');
+  await selectTicket(id);
+}
+
+async function setStatus(id, key) {
+  await fetch(`/api/set-status/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statusKey: key }),
+  });
+  toast(`${id} set to ${key}`, 'info');
+  await selectTicket(id);
+}
+
+/* ── Keyboard shortcuts ──────────────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') closeDetail();
+  if (e.key === 'p' || e.key === 'P') togglePause();
+  if (e.key === 'r' || e.key === 'R') runJob('all');
+});
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function badge(text, cls) {
+  return `<span class="badge badge-${cls}">${esc(text)}</span>`;
+}
+
+function statusBadgeClass(key) {
+  const m = { redo:'warning', ready:'info', inDevelopment:'accent', parked:'dim',
+               testing:'info', pass:'success', signOff:'success', blocked:'danger',
+               needInfo:'warning', approval:'danger', planning:'dim', new:'dim', resume:'warning' };
+  return m[key] || 'dim';
+}
+
+function stageColor(stage) {
+  const m = { coding:'accent', parked:'dim', testing:'info' };
+  return m[stage] || 'dim';
+}
+
+function eventIcon(ev) {
+  const m = {
+    'agent-start':'🤖','agent-finish':'✅','checked-in':'📦','parked':'🅿️',
+    'qa':'🧪','redo':'↩️','blocked':'🔴','planned':'📋','deploy':'🚀',
+    'smoke':'💨','provider-hold':'⏸️','plan-failed':'❌','plan-blocked':'🚫',
+  };
+  return m[ev] || '•';
+}
+
+function timeAgo(iso) {
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60)   return `${s}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m`;
+  return `${Math.floor(s/3600)}h`;
+}
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.style.opacity = '0', 2700);
+  setTimeout(() => el.remove(), 3000);
+}
+</script>
+</body>
+</html>
