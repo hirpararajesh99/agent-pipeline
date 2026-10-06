@@ -36,8 +36,9 @@ export function gitVcs(cfg) {
       }
       return { workDir: dir, branch };
     },
-    async checkIn({ ticket, workDir, files, message, branch }) {
-      await git(['add', '--', ...files], workDir);
+    async checkIn({ ticket, workDir, files, deletedFiles = [], message, branch }) {
+      if (files.length) await git(['add', '--', ...files], workDir);
+      if (deletedFiles.length) await git(['add', '-u', '--', ...deletedFiles], workDir);
       const staged = await runCommand('git', ['diff', '--cached', '--quiet'], { cwd: workDir });
       if (staged.code === 0) throw new Error('Nothing to check in: the listed files have no changes.');
       await git(['commit', '-m', message], workDir);

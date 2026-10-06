@@ -8,6 +8,8 @@ import { appendChangelog, fileHash, findContext, rebuildFeatureIndex, seedReadme
 import { runShell } from './exec.mjs';
 import { acquireLock } from './lock.mjs';
 import { diffSnapshots, snapshot, validatePlan } from './plan.mjs';
+import { preflightTicket } from './preflight.mjs';
+import { buildProjectIndex, findIndexContext, writeProjectIndex } from './indexer.mjs';
 import { buildPlanPrompt, buildPrompt } from './prompt.mjs';
 import { State } from './state.mjs';
 import { ensureDir, isSafeId, readJson, redact, render, sanitizeText, tail } from './util.mjs';
@@ -113,6 +115,23 @@ async function humanComments(ctx, id) {
   } catch { return []; }
 }
 
+async function preflight(ctx, ticket, comments, context) {
+  if (!ctx.cfg.preflight.enabled) return null;
+  const result = preflightTicket(ctx.cfg, ticket, context);
+  ctx.state.set(`preflight-${ticket.id}`, result);
+  ctx.state.event('preflight', { ticket: ticket.id, ok: result.ok, risks: result.risks, blockers: result.blockers });
+  return result;
+}
+
+async function stopForPreflight(ctx, ticket, restoreKey, result) {
+  if (!result || result.ok) return false;
+  const missing = result.blockers.join('; ');
+  await note(ctx, ticket.id, `Before an AI agent is started, please add ${missing}. Then set the ticket to "resume".` , { plan: true });
+  await ctx.tracker.setStatus(ticket.id, 'needInfo');
+  ctx.state.set('inflight', null);
+  return true;
+}
+
 async function codingStage(ctx, ticket, provider) {
   const { cfg, state, tracker, vcs, lock } = ctx;
   const id = ticket.id;
@@ -132,6 +151,11 @@ async function codingStage(ctx, ticket, provider) {
     state.set('inflight', { ticketId: id, title: ticket.title, stage: 'coding', startedAt: new Date().toISOString() });
   }
   if (!cfg.plan.enabled) plan = null;
+
+  const preflightComments = await humanComments(ctx, id);
+  const preflightContext = findContext(cfg.workspace, cfg, { id, title: ticket.title, description: ticket.description, comments: preflightComments, hintFeature: plan?.feature });
+  const preflightResult = await preflight(ctx, ticket, preflightComments, preflightContext);
+  if (await stopForPreflight(ctx, ticket, restoreKey, preflightResult)) return { status: 'need-info', reason: 'preflight' };
 
   await tracker.setStatus(id, 'inDevelopment');
   let prep;
@@ -153,13 +177,14 @@ async function codingStage(ctx, ticket, provider) {
     docsBefore = { hash: fileHash(path.join(workDir, readmePath)) };
     fs.writeFileSync(path.join(artifactsDir, 'plan.json'), JSON.stringify(plan, null, 2));
   }
-  const comments = await humanComments(ctx, id);
+  const comments = preflightComments;
   const context = findContext(workDir, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: plan?.feature });
+  const indexContext = findIndexContext(buildProjectIndex(workDir, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: context });
 
   const failure = state.get('failures', {})[id];
   const promptFile = path.join(cfg.stateDir, 'prompts', `${id}-code.md`);
   ensureDir(path.dirname(promptFile));
-  fs.writeFileSync(promptFile, buildPrompt({ cfg, ticket, workDir, artifactsDir, failure, plan, context, comments, readmePath, isRedo }));
+  fs.writeFileSync(promptFile, buildPrompt({ cfg, ticket, workDir, artifactsDir, failure, plan, context, comments, readmePath, isRedo, preflight: preflightResult, indexContext }));
 
   state.event('agent-start', { ticket: id, provider, job: 'code' });
   const res = await runAgent(provider, cfg, {
@@ -206,7 +231,7 @@ async function codingStage(ctx, ticket, provider) {
 
   await tracker.setStatus(id, 'parked');
   state.set('inflight', {
-    ticketId: id, title: ticket.title, stage: 'parked', workDir, artifactsDir, files: v.files,
+    ticketId: id, title: ticket.title, stage: 'parked', workDir, artifactsDir, files: v.files, deletedFiles: v.deletedFiles,
     branch: prep.branch ?? null, feature: plan?.feature ?? null, summary: v.summary, lesson: v.lesson, readmeChanged: v.readmeChanged,
   });
   state.event('parked', { ticket: id });
@@ -232,6 +257,7 @@ async function qaAndCheckIn(ctx, inf) {
 
   // QA passed: the pipeline (not the agent) writes the documentation that must travel with the code.
   const files = [...inf.files];
+  const deletedFiles = [...(inf.deletedFiles ?? [])];
   try {
     const plan = inf.feature ? state.get(`plan-${ticket.id}`) : null;
     if (plan) {
@@ -241,13 +267,14 @@ async function qaAndCheckIn(ctx, inf) {
       if (inf.lesson) files.push(...writeLesson(inf.workDir, cfg, { ticket, feature: plan.feature, lesson: inf.lesson }));
       files.push(rebuildFeatureIndex(inf.workDir, cfg));
     }
+    files.push(...writeProjectIndex(inf.workDir, cfg));
   } catch (e) {
     return failTicket(ctx, ticket, `QA passed but writing the documentation failed: ${e.message}`);
   }
 
   let ci;
   try {
-    ci = await vcs.checkIn({ ticket, workDir: inf.workDir, files: [...new Set(files)], message: `${ticket.id}: ${sanitizeText(ticket.title)}`, branch: inf.branch });
+    ci = await vcs.checkIn({ ticket, workDir: inf.workDir, files: [...new Set(files)], deletedFiles: [...new Set(deletedFiles)], message: `${ticket.id}: ${sanitizeText(ticket.title)}`, branch: inf.branch });
   } catch (e) {
     return failTicket(ctx, ticket, `QA passed but check-in failed: ${e.message}`);
   }
@@ -261,7 +288,7 @@ async function qaAndCheckIn(ctx, inf) {
     state.set(key, m);
   }
   state.set('inflight', null);
-  state.event('checked-in', { ticket: ticket.id, ref: ci.ref, files: [...new Set(files)].length });
+  state.event('checked-in', { ticket: ticket.id, ref: ci.ref, files: [...new Set(files)].length, deletedFiles: deletedFiles.length });
   return { status: 'pass', ticket: ticket.id, ref: ci.ref };
 }
 
@@ -352,10 +379,13 @@ async function planStage(ctx, ticket, provider, { inline = false } = {}) {
   fs.rmSync(path.join(artifactsDir, 'plan.json'), { force: true });
 
   const context = findContext(root, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: prevPlan?.feature });
+  const indexContext = findIndexContext(buildProjectIndex(root, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: context });
+  const preflightResult = await preflight(ctx, ticket, comments, context);
+  if (await stopForPreflight(ctx, ticket, restoreKey, preflightResult)) return { status: 'need-info', reason: 'preflight' };
   const failure = state.get('plan-failures', {})[id];
   const promptFile = path.join(cfg.stateDir, 'prompts', `${id}-plan.md`);
   ensureDir(path.dirname(promptFile));
-  fs.writeFileSync(promptFile, buildPlanPrompt({ cfg, ticket, comments, context, prevPlan, artifactsDir, failure }));
+  fs.writeFileSync(promptFile, buildPlanPrompt({ cfg, ticket, comments, context, prevPlan, artifactsDir, failure, preflight: preflightResult, indexContext }));
 
   const ignoreRel = [path.relative(root, artifactsDir), path.relative(root, cfg.stateDir)].filter((p) => p && !p.startsWith('..'));
   const before = cfg.plan.snapshotGuard ? snapshot(root, cfg.plan.ignore, ignoreRel) : null;

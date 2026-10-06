@@ -19,12 +19,30 @@ ticket (code ready / redo)
   VERIFY     pipeline checks: handoff valid, files inside the project, every AC covered by a QA step,
              README updated, build + unit tests pass   (fail -> redo with evidence; 3 fails -> blocked)
   QA         your QA command: exit 0 pass, 2 fail, 3 blocked
-  CHECK-IN   only the files in park.json + docs the pipeline writes: ticket plan, README, CHANGELOG,
+  CHECK-IN   only the existing files and deletions in park.json + docs the pipeline writes: ticket plan, README, CHANGELOG,
              lesson + index, feature index. Status "ai test pass".
   DEPLOY     after batchMin tickets: deploy + smoke command, status "sign off"
 ```
 
 The plan job and the code job have separate locks, so you can run them from two schedules or together.
+
+## Preflight: save agent time and tokens
+
+Before the pipeline starts a plan or coding agent, it runs a deterministic, no-AI preflight. By default it
+requires a title and a meaningful description, finds the matching feature documentation and earlier lessons,
+and flags risk terms such as database, permissions, payments, deletion and secrets. An incomplete ticket is moved
+to `need info` before an agent is started. Risk signals are included in the focused prompt for the human and the
+plan agent to verify; they do not make an automatic product decision.
+
+Configure it in `pipeline.config.json`:
+
+```json
+"preflight": {
+  "enabled": true,
+  "requireDescription": true,
+  "minDescriptionChars": 20
+}
+```
 
 ## How the agent knows the feature (no AI involved in this step)
 
@@ -45,6 +63,18 @@ agent which README, changelog, earlier ticket plans and lessons to read first. C
 ```
 agent-pipeline docs find "widget list needs a search box"
 ```
+
+The pipeline also builds a dependency-aware project index for HTML, CSS, JavaScript, manifests, local assets and .NET solutions/projects.
+It gives each agent only the most relevant file paths and relationships before it explores code. Generate or inspect it with:
+
+```
+agent-pipeline docs scan
+agent-pipeline docs impact assets/logo.png
+```
+
+The built-in .NET analyzer recognizes solution and project references, C# namespaces/types, legacy ASPX code-behind files,
+and modern ASP.NET routes and dependency-injection registrations. The analyzer interface is extensible for future Node,
+Python, Java and PHP project maps.
 
 ### Change or enhancement after a ticket is done
 
@@ -77,29 +107,188 @@ agent-pipeline docs find "widget list needs a search box"
 
 All names are configurable under `tracker.statuses`. For ClickUp, create these statuses in the list first.
 
-## Setup on Windows (or any OS)
+## Step-by-step: first project pilot
 
-1. Install Node.js LTS from https://nodejs.org. Check `node --version` (18.17 or newer).
-2. Install one AI tool and sign in once (`codex`, `claude` or Cursor's `agent`).
-3. In this folder: `npm test` (23 tests, no AI needed), then `npm link` and open a new terminal.
-4. In the project folder you want to automate (commit or back it up first):
-   ```
-   agent-pipeline init
-   ```
-   This creates `pipeline.config.json`, `AGENTS.md`, `CLAUDE.md`, `jobs/`, `docs/` and a sample `tickets.json`.
-5. Edit `pipeline.config.json`: `agent.provider`, `gates.build`, `qa.command`, and `vcs` (`none` to start).
-6. Add tickets: `agent-pipeline ticket add --title "..." --description "What / Where / Expected result / Do not change"`.
-7. `agent-pipeline doctor` must show `ok` everywhere. Then:
-   ```
-   agent-pipeline run --dry-run        # what would it do?
-   agent-pipeline run --job plan       # plan tickets
-   agent-pipeline ticket show DEMO-1   # read the plan
-   agent-pipeline run --job code       # build, verify, QA, check in
-   agent-pipeline loop --interval 15   # keep going
-   ```
+Use this process for the first ticket in every new project. Start with a small, low-risk change; do not make the
+first ticket a database migration, authentication change, payment change, deletion of business data, or deployment.
 
-Scheduling: cron / systemd timer / launchd / Windows Task Scheduler running `agent-pipeline run`, or leave
-`loop` running. Locks make overlapping runs safe.
+### 1. Check prerequisites
+
+Install Node.js 18.17 or newer and one supported coding agent (`codex`, `claude`, Cursor's `agent`, or a configured
+custom command). Sign in to the coding agent once before using the pipeline.
+
+From the agent-pipeline repository, run the test suite before sharing a new version:
+
+```cmd
+cd E:\agent-pipeline
+npm.cmd test
+```
+
+On macOS/Linux, use `npm test`. The suite uses fake agents and requires no AI account or network access.
+
+### 2. Make the target project safe
+
+Commit the project or create a backup before the first run. Start with `vcs.type: "none"` only when working on a
+copy of the project or when a person will inspect every changed file. Prefer Git worktrees after the pilot is proven.
+
+### 3. Initialise the target project
+
+From the target project root, use the source directly during development:
+
+```cmd
+cd E:\my-project
+node E:\agent-pipeline\bin\pipeline.mjs init
+```
+
+After installing the npm package globally, the equivalent command is:
+
+```cmd
+agent-pipeline init
+```
+
+`init` creates `pipeline.config.json`, `AGENTS.md`, `CLAUDE.md`, `jobs/`, `docs/`, and a sample `tickets.json`.
+The sample `DEMO-1` ticket is only an example; block it before working on real tickets:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs ticket set DEMO-1 blocked
+```
+
+### 4. Configure the project
+
+Edit `pipeline.config.json`. At minimum, choose the coding provider and configure real build/test/QA commands for
+the project. A safe first configuration looks like this:
+
+```json
+{
+  "agent": {
+    "provider": "codex",
+    "maxMinutes": 30,
+    "plan": { "maxMinutes": 15 }
+  },
+  "vcs": { "type": "none" },
+  "gates": {
+    "build": "",
+    "unitTests": ""
+  },
+  "qa": {
+    "command": "your-real-qa-command"
+  },
+  "deploy": { "command": "" }
+}
+```
+
+`qa.command` is required. Do not use an always-successful command for normal work: it proves only that the pipeline
+ran, not that the website/application works. For a static website, a useful first QA script checks required assets,
+stale asset references, key pages, and—where possible—browser screenshots.
+
+Check the configuration before starting work:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs doctor
+```
+
+Every required item should show `ok`.
+
+### 5. Create a good ticket
+
+Include what changes, where it appears, expected result, what must not change, and test data/accounts if relevant.
+For example:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs ticket add --id WEB-1 --title "Replace approved website logo" --description "What: replace the current logo with assets/company-logo.png. Where: header, footer, social metadata, favicon and publish mirror. Expected result: the approved logo appears on desktop and mobile. Do not change: navigation, page layout, colours or page text."
+```
+
+The deterministic preflight stops clearly incomplete tickets before an AI agent is started, saving tokens and cost.
+
+### 6. Plan before coding
+
+First see what the pipeline would select:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs run --dry-run
+```
+
+Then create the plan:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs run --job plan
+node E:\agent-pipeline\bin\pipeline.mjs ticket show WEB-1
+```
+
+Review the plan's scope, listed files, acceptance checks, risks and QA focus. No project code should change during
+planning. A `need info` result means add a human answer as a ticket comment, then set the ticket to `resume`.
+A `needs approval` result requires a person to set the ticket to `ready` before coding.
+
+### 7. Run the coding stage and review the result
+
+Only after the plan is acceptable:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs run --job code
+node E:\agent-pipeline\bin\pipeline.mjs ticket show WEB-1
+```
+
+The pipeline validates the agent handoff, paths, acceptance-check QA coverage, feature documentation, build/unit-test
+gates, and your QA command before check-in. Review the file diff and the actual application/website before accepting
+the result.
+
+### 8. Correct a ticket safely
+
+Use the right status for the situation:
+
+| Situation | Action |
+| --- | --- |
+| Requirement/scope changed | Add a ticket comment, then set `resume`; the plan agent creates a new plan version. |
+| QA/tester found a defect | Add a ticket comment, then set `redo`; the coding agent receives the evidence and must write a lesson. |
+| Agent deleted obsolete files | The agent lists them in `park.json` `deletedFiles`, not `files`. |
+| Ticket is blocked after repeated failures | Inspect the current working tree, add the missing information/fix, then set `resume` to re-plan. |
+
+Examples:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs ticket comment WEB-1 "Use the approved transparent PNG. Remove the duplicate header wordmark."
+node E:\agent-pipeline\bin\pipeline.mjs ticket set WEB-1 resume
+node E:\agent-pipeline\bin\pipeline.mjs run --job plan
+```
+
+### 9. Build and inspect project knowledge
+
+Generate the deterministic project index and reference graph at any time:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs docs scan
+node E:\agent-pipeline\bin\pipeline.mjs docs impact assets\company-logo.png
+```
+
+This writes `docs/project-index.json`, `docs/project-graph.json`, and `docs/PROJECT-INDEX.md`. The pipeline also
+refreshes these files after a successful ticket. The plan/code agents receive only a compact, relevant subset of this
+map, reducing repeated repository exploration and token use.
+
+### 10. Use the dashboard and scheduling
+
+Start the local dashboard from the target project folder:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs serve --port 3000
+```
+
+Open `http://localhost:3000`. Keep this command running while viewing live state. The current dashboard is an
+operator view; use `ticket show` for the complete saved ticket/plan record.
+
+For safe automation, automate planning first:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs loop --job plan --interval 15
+```
+
+After the project has proven reliable, run both planning and coding on a schedule:
+
+```cmd
+node E:\agent-pipeline\bin\pipeline.mjs loop --interval 15
+```
+
+Windows Task Scheduler, cron, systemd timers and launchd can run one `agent-pipeline run` tick on a schedule.
+Locks make overlapping runs safe.
 
 ## Switching the AI tool
 
@@ -113,7 +302,7 @@ planning: `"agent": { "plan": { "provider": "claude", "model": "..." } }`. Prese
 
 - Plan agent is read-only: the pipeline snapshots the project and blocks the ticket if any file changed.
 - The agent never gets tracker or deploy credentials; questions go through `needinfo.json`.
-- Only files listed in park.json (plus pipeline-written docs) are checked in. Paths are validated.
+- Only files and deletedFiles listed in park.json (plus pipeline-written docs) are checked in. Paths are validated.
 - Ticket text and comments are marked as data in the prompt; pipeline comments are tagged and never fed back.
 - A missing or logged-out AI tool puts that tool on a 15-minute hold without using up an attempt.
 - Quota hits hold only that provider; optional `agent.fallback`.
@@ -128,9 +317,8 @@ Existing READMEs have no front matter, so add `keywords:` to the ones you want m
 
 ## Known limits
 
-- Tested with a fake agent, the file tracker and `vcs: none` (23 tests). **Not tested** against the real
+- Tested with a fake agent, the file tracker and `vcs: none` (27 tests). **Not tested** against the real
   Codex, Cursor or Claude CLIs, ClickUp, git remotes or TFVC. Run `doctor`, `--dry-run`, then one small ticket.
-- A ticket that only deletes files cannot be listed in park.json; check those in by hand.
 - The README-updated check proves the file changed, not that the content is right. A person reviews docs.
 - Matching a ticket to a feature is keyword scoring; vague tickets may match nothing. The plan agent then
   searches the code itself and picks the feature name.

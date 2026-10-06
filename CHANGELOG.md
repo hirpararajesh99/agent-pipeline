@@ -8,6 +8,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Project Knowledge Engine: deterministic HTML/CSS/JS/manifest/asset index, local-reference graph, impact lookup, compact file context in agent prompts, and initial legacy/modern .NET analysis
+- `park.json` `deletedFiles` support: safely validates intentional deletions, supports deletion-only tickets, and stages Git deletions during check-in
+- Deterministic preflight before plan and code runs: blocks clearly incomplete tickets without starting an AI agent, records matching documentation and lessons, and flags configurable risk terms for the focused prompt
 - `src/server.mjs` — local HTTP + SSE server for the browser dashboard
 - `src/dashboard.html` — real-time browser dashboard (vanilla HTML/CSS/JS, zero deps)
 - `agent-pipeline serve [--port N]` CLI command to start the dashboard

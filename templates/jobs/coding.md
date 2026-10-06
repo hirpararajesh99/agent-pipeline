@@ -10,7 +10,7 @@
    current behaviour, rules and decisions, known limits. If the behaviour did not change, explain why in
    park.json docsUnchangedReason.
 6. Write park.json and qa.json into the artifacts folder:
-   - park.json: plain-English summary, every file you changed or created, honest limitations.
+   - park.json: plain-English summary, every changed or created file that still exists, deletedFiles for every removed file, honest limitations. Never put a deleted file in files.
    - qa.json: real steps with assert lines. Every acceptance check (AC1, AC2 ...) must be covered by a step
      that asserts it, with "covers": ["AC1"]. Cover related surfaces too.
 7. On a redo, also write lesson.json (title, symptom, rootCause, rule, keywords) so the mistake is not repeated.

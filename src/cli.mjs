@@ -6,6 +6,7 @@ import { providerName, providerSpec } from './adapters/agents/index.mjs';
 import { createTracker } from './adapters/trackers/index.mjs';
 import { commandExists } from './exec.mjs';
 import { findContext, isFeatureSlug, rebuildFeatureIndex, seedReadme, slugify } from './docs.mjs';
+import { buildProjectIndex, findImpact, writeProjectIndex } from './indexer.mjs';
 import { runOnce } from './orchestrator.mjs';
 import { State } from './state.mjs';
 import { readJson, sleep, writeJson } from './util.mjs';
@@ -36,6 +37,8 @@ Tickets (file tracker; set works with ClickUp too)
 Docs
   docs find "<text>"            Show which feature docs and lessons an agent would be told to read
   docs index                    Rebuild docs/FEATURES.md from the feature READMEs
+  docs scan                     Generate the project file index and reference graph
+  docs impact <path>            Show direct indexed relationships for a project file or asset
   docs scaffold <slug> [--title T]   Create docs/features/<slug>/README.md to fill in
 
 Options
@@ -137,6 +140,16 @@ function status(cfg) {
 async function docsCmd(cfg, args) {
   const sub = args[0];
   if (sub === 'index') return console.log(`Wrote ${rebuildFeatureIndex(cfg.workspace, cfg)}`);
+  if (sub === 'scan') {
+    const index = buildProjectIndex(cfg.workspace, cfg);
+    const files = writeProjectIndex(cfg.workspace, cfg, index);
+    return console.log(`Indexed ${index.files.length} files and ${index.graph.edges.length} relationships:\n${files.join('\n')}`);
+  }
+  if (sub === 'impact') {
+    const requested = args[1];
+    if (!requested) throw new Error('Usage: docs impact <relative/path>');
+    return console.log(JSON.stringify(findImpact(buildProjectIndex(cfg.workspace, cfg), requested), null, 2));
+  }
   if (sub === 'find') {
     const text = args.slice(1).join(' ');
     if (!text) throw new Error('Usage: docs find "<ticket text>"');
@@ -150,7 +163,7 @@ async function docsCmd(cfg, args) {
     const r = seedReadme(cfg.workspace, cfg, { feature: slug, title: flags.title ?? slug, keywords: [slug.replace(/-/g, ' ')], files: [] });
     return console.log(`${r.created ? 'Created' : 'Already exists'}: ${r.rel}`);
   }
-  console.log('Usage: docs find "<text>" | docs index | docs scaffold <slug>');
+  console.log('Usage: docs find "<text>" | docs index | docs scan | docs impact <path> | docs scaffold <slug>');
 }
 
 async function ticketCmd(cfg, args, flags) {

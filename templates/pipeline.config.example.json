@@ -16,6 +16,19 @@
   "vcs": {
     "type": "none"
   },
+  "knowledge": {
+    "enabled": true,
+    "indexFile": "docs/project-index.json",
+    "graphFile": "docs/project-graph.json",
+    "indexMarkdown": "docs/PROJECT-INDEX.md",
+    "maxContextFiles": 15,
+    "adapters": ["dotnet"]
+  },
+  "preflight": {
+    "enabled": true,
+    "requireDescription": true,
+    "minDescriptionChars": 20
+  },
   "plan": { "enabled": true, "perTick": 2 },
   "docs": {
     "featuresDir": "docs/features",

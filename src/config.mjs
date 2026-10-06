@@ -63,6 +63,29 @@ export const DEFAULTS = {
   qa: { command: '', timeoutMinutes: 30, exitCodes: { pass: 0, fail: 2, blocked: 3 } },
   deploy: { command: '', smokeCommand: '', batchMin: 10, timeoutMinutes: 60 },
   limits: { maxAttempts: 3, pauseReadyWhenRedoAtLeast: 5, lockStaleMinutes: 120, quotaHoldMinutes: 60, unavailableHoldMinutes: 15 },
+  preflight: {
+    enabled: true,
+    requireDescription: true,
+    minDescriptionChars: 20,
+    riskPatterns: [
+      { label: 'database or migration', pattern: '\\b(database|schema|migration)\\b' },
+      { label: 'authentication or permissions', pattern: '\\b(auth|authentication|permission|role)\\b' },
+      { label: 'payment', pattern: '\\b(payment|billing|invoice)\\b' },
+      { label: 'deletion or data loss', pattern: '\\b(delete|deletion|remove data|purge)\\b' },
+      { label: 'security or secret handling', pattern: '\\b(security|secret|token|password|credential)\\b' },
+    ],
+  },
+  knowledge: {
+    enabled: true,
+    indexFile: 'docs/project-index.json',
+    graphFile: 'docs/project-graph.json',
+    indexMarkdown: 'docs/PROJECT-INDEX.md',
+    maxContextFiles: 15,
+    maxContextEdges: 30,
+    maxFileBytes: 1024 * 1024,
+    adapters: ['dotnet'],
+    ignore: ['node_modules', '.git', '.pipeline', '.pipeline-state', 'dist', 'build', 'bin', 'obj', '.vs', '.idea'],
+  },
   plan: {
     enabled: true,
     perTick: 2,
@@ -121,5 +144,11 @@ function validate(cfg) {
   if (!cfg.qa.command) errs.push('qa.command is required: the pipeline never checks in without a QA run');
   if (cfg.vcs.type === 'command' && !cfg.vcs.checkinCommand) errs.push('vcs.checkinCommand is required for vcs.type "command"');
   if (!(cfg.limits.maxAttempts >= 1)) errs.push('limits.maxAttempts must be >= 1');
+  if (!(cfg.preflight.minDescriptionChars >= 0)) errs.push('preflight.minDescriptionChars must be >= 0');
+  if (!Array.isArray(cfg.preflight.riskPatterns)) errs.push('preflight.riskPatterns must be an array');
+  if (!(cfg.knowledge.maxContextFiles >= 1)) errs.push('knowledge.maxContextFiles must be >= 1');
+  if (!(cfg.knowledge.maxFileBytes >= 1)) errs.push('knowledge.maxFileBytes must be >= 1');
+  if (!Array.isArray(cfg.knowledge.ignore)) errs.push('knowledge.ignore must be an array');
+  if (!Array.isArray(cfg.knowledge.adapters)) errs.push('knowledge.adapters must be an array');
   if (errs.length) throw new Error(`Invalid config:\n - ${errs.join('\n - ')}`);
 }

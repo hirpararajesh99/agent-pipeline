@@ -103,6 +103,7 @@ no `node_modules`, no version conflicts, and trivial installation (`npm link`).
 | `src/artifacts.mjs` | Validates agent handoff files (park.json, qa.json, lesson.json) |
 | `src/config.mjs` | Config schema, defaults, deep-merge, validation |
 | `src/docs.mjs` | Feature README management, keyword scoring, lesson indexing |
+| `src/indexer.mjs`, `src/indexers/` | Deterministic project index, reference graph, impact lookup and stack-specific analyzers (.NET initially) |
 | `src/state.mjs` | Atomic JSON state store (one file per key in stateDir) |
 | `src/lock.mjs` | File-based locking with heartbeat and stale-lock recovery |
 | `src/exec.mjs` | Shell command runner with timeout, log streaming, streaming tail |
@@ -138,7 +139,7 @@ All status names are configurable via `tracker.statuses` in `pipeline.config.jso
 
 | File | Required | Purpose |
 |---|---|---|
-| `park.json` | Always | Ticket ID, plain-English summary, list of changed files, limitations |
+| `park.json` | Always | Ticket ID, plain-English summary, changed files, deleted files, limitations |
 | `qa.json` | Always | Real test steps with assert lines; each step must cover an acceptance check |
 | `plan.json` | Plan job only | Decision (clear/need-info/high-risk), acceptance checks, scope, files |
 | `needinfo.json` | When blocked | One plain-English question before coding can proceed |

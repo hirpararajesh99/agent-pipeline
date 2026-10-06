@@ -10,6 +10,9 @@ import { acquireLock } from '../src/lock.mjs';
 import { readJson, writeJson, sanitizeText, redact, isInside } from '../src/util.mjs';
 import { buildInvocation } from '../src/adapters/agents/index.mjs';
 import { findContext, parseFrontMatter } from '../src/docs.mjs';
+import { preflightTicket } from '../src/preflight.mjs';
+import { validateArtifacts } from '../src/artifacts.mjs';
+import { buildProjectIndex, findImpact, findIndexContext, writeProjectIndex } from '../src/indexer.mjs';
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const node = `"${process.execPath}"`;
@@ -152,7 +155,8 @@ test('plan then code: plan is made, code meets it, docs are written and checked 
   assert.match(fs.readFileSync(s.work('docs/features/widgets/CHANGELOG.md'), 'utf8'), /T1/);
   assert.match(fs.readFileSync(s.work('docs/FEATURES.md'), 'utf8'), /widgets/);
   const ev = fs.readFileSync(path.join(s.dir, 'state', 'events.jsonl'), 'utf8');
-  assert.match(ev, /"checked-in".*"files":5/s);
+  // The feature docs plus the generated project-index, graph, and summary are checked in.
+  assert.match(ev, /"checked-in".*"files":8/s);
 });
 
 test('need-info plan: question posted, a human answer reaches the next planning run', async () => {
@@ -304,4 +308,77 @@ test('agent presets build the expected commands, plan job gets read-only tools f
   const cursor = buildInvocation('cursor', cfg, { promptFile: pf, cwd: '.', ticket: 'T1' });
   assert.equal(cursor.input, null);
   assert.match(cursor.args.at(-1), /Read the file/);
+});
+
+test('preflight stops incomplete tickets before an agent starts and flags risk terms', async () => {
+  env();
+  const s = setup(PLAN_ON, [T('T1', 'not started', { description: 'too short' })]);
+  const r = await runOnce(s.cfg, {}, { job: 'plan' });
+  assert.equal(r.results[0].status, 'need-info');
+  assert.equal(s.ticket().status, 'need info');
+  assert.equal(s.state('preflight-T1').ok, false);
+  assert.match(s.ticket().comments[0], /Before an AI agent is started/);
+
+  const p = preflightTicket(s.cfg, T('T2', 'not started', { title: 'Change database permissions', description: 'Update the database role permissions for the reporting user.' }), { features: [], lessons: [] });
+  assert.equal(p.ok, true);
+  assert.deepEqual(p.risks, ['database or migration', 'authentication or permissions']);
+});
+
+test('park.json accepts safe deletedFiles and rejects a deletion that still exists', () => {
+  const s = setup();
+  const artifacts = s.work('.pipeline', 'tickets', 'T1');
+  fs.mkdirSync(artifacts, { recursive: true });
+  fs.writeFileSync(s.work('kept.txt'), 'kept');
+  writeJson(path.join(artifacts, 'park.json'), {
+    ticketId: 'T1', summary: 'Removed obsolete branding asset', files: ['kept.txt'], deletedFiles: ['old-logo.png'],
+  });
+  writeJson(path.join(artifacts, 'qa.json'), { steps: [{ action: 'check', assert: 'passes' }] });
+  let r = validateArtifacts({ cfg: s.cfg, ticketId: 'T1', workDir: s.work(), artifactsDir: artifacts });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.deletedFiles, ['old-logo.png']);
+
+  fs.writeFileSync(s.work('old-logo.png'), 'still here');
+  r = validateArtifacts({ cfg: s.cfg, ticketId: 'T1', workDir: s.work(), artifactsDir: artifacts });
+  assert.equal(r.ok, false);
+  assert.match(r.errors.join('\n'), /deleted file still exists/);
+});
+
+test('project index maps local HTML, CSS and JavaScript references for compact impact context', () => {
+  const s = setup();
+  fs.mkdirSync(s.work('assets'), { recursive: true });
+  fs.writeFileSync(s.work('index.html'), '<link href="assets/site.css"><script src="assets/app.js"></script><img src="assets/logo.png">');
+  fs.writeFileSync(s.work('assets', 'site.css'), '.hero { background: url("logo.png"); }');
+  fs.writeFileSync(s.work('assets', 'app.js'), 'import "./helper.js";');
+  fs.writeFileSync(s.work('assets', 'helper.js'), 'export const ready = true;');
+  fs.writeFileSync(s.work('assets', 'logo.png'), 'png');
+
+  const index = buildProjectIndex(s.work(), s.cfg);
+  assert.ok(index.graph.edges.some((e) => e.from === 'index.html' && e.to === 'assets/site.css'));
+  assert.ok(index.graph.edges.some((e) => e.from === 'assets/site.css' && e.to === 'assets/logo.png'));
+  assert.deepEqual(findImpact(index, 'assets/site.css').related.sort(), ['assets/logo.png', 'index.html']);
+  const context = findIndexContext(index, s.cfg, { title: 'Update logo', description: 'Replace the logo image', comments: [] });
+  assert.ok(context.files.some((f) => f.path === 'assets/logo.png'));
+  const written = writeProjectIndex(s.work(), s.cfg, index);
+  assert.equal(written.length, 3);
+  assert.ok(fs.existsSync(s.work('docs', 'project-index.json')));
+  assert.ok(fs.existsSync(s.work('docs', 'project-graph.json')));
+});
+
+test('project index maps legacy and modern .NET project evidence', () => {
+  const s = setup();
+  fs.mkdirSync(s.work('src'), { recursive: true });
+  fs.mkdirSync(s.work('Lib'), { recursive: true });
+  fs.writeFileSync(s.work('App.sln'), 'Project("{x}") = "Web", "src\\Web.csproj", "{y}"');
+  fs.writeFileSync(s.work('src', 'Web.csproj'), '<Project><ItemGroup><ProjectReference Include="../Lib/Lib.csproj" /></ItemGroup></Project>');
+  fs.writeFileSync(s.work('Lib', 'Lib.csproj'), '<Project />');
+  fs.writeFileSync(s.work('src', 'Services.cs'), 'namespace App.Services; public interface ICustomerService {} public class CustomerService : ICustomerService {}');
+  fs.writeFileSync(s.work('src', 'Program.cs'), 'builder.Services.AddScoped<ICustomerService, CustomerService>(); app.MapGet("/health", () => "ok");');
+  fs.writeFileSync(s.work('src', 'Legacy.aspx'), '<%@ Page CodeBehind="Legacy.aspx.cs" %>');
+  fs.writeFileSync(s.work('src', 'Legacy.aspx.cs'), 'namespace App; public class Legacy {}');
+
+  const index = buildProjectIndex(s.work(), s.cfg);
+  assert.ok(index.graph.edges.some((e) => e.from === 'App.sln' && e.to === 'src/Web.csproj' && e.kind === 'solution-project'));
+  assert.ok(index.graph.edges.some((e) => e.from === 'src/Web.csproj' && e.to === 'Lib/Lib.csproj' && e.kind === 'project-reference'));
+  assert.ok(index.graph.edges.some((e) => e.from === 'src/Legacy.aspx' && e.to === 'src/Legacy.aspx.cs' && e.kind === 'code-behind'));
+  assert.ok(index.graph.edges.some((e) => e.from === 'src/Program.cs' && e.to === 'route:/health' && e.kind === 'defines-route'));
 });

@@ -8,7 +8,7 @@ const str = (v) => typeof v === 'string' && v.trim().length > 0;
 
 /**
  * The agent's claims are verified, not trusted.
- * park.json  : plain-English summary + files that belong to this ticket (only these are ever checked in)
+ * park.json  : plain-English summary + changed files and deleted files that belong to this ticket (only these are ever checked in)
  * qa.json    : real steps; with a plan, every acceptance check (AC1, AC2 ...) must be covered by an assert step
  * README     : with a plan, the feature README must change (or park.json explains why not)
  * lesson.json: required on a redo, so the same mistake is not repeated
@@ -25,14 +25,28 @@ export function validateArtifacts({ cfg, ticketId, workDir, artifactsDir, plan =
   else if (park) {
     if (park.ticketId !== ticketId) errors.push(`park.json ticketId must be "${ticketId}"`);
     if (!str(park.summary)) errors.push('park.json needs a plain-English summary');
-    if (!Array.isArray(park.files) || park.files.length === 0) errors.push('park.json must list the changed files');
-    else {
-      for (const f of park.files) {
-        if (typeof f !== 'string' || !f || BAD_PATH_CHARS.test(f)) { errors.push(`park.json has an unsafe file name: ${JSON.stringify(f)}`); continue; }
+    const files = park.files;
+    const deletedFiles = park.deletedFiles ?? [];
+    if (!Array.isArray(files)) errors.push('park.json files must be an array');
+    if (!Array.isArray(deletedFiles)) errors.push('park.json deletedFiles must be an array when provided');
+    if (Array.isArray(files) && Array.isArray(deletedFiles) && files.length + deletedFiles.length === 0) {
+      errors.push('park.json must list changed files or deletedFiles');
+    }
+    const checkPaths = (items, label, shouldExist) => {
+      if (!Array.isArray(items)) return;
+      for (const f of items) {
+        if (typeof f !== 'string' || !f || BAD_PATH_CHARS.test(f)) { errors.push(`park.json has an unsafe ${label} name: ${JSON.stringify(f)}`); continue; }
         const abs = path.resolve(workDir, f);
-        if (!isInside(workDir, abs)) errors.push(`park.json file is outside the workspace: ${f}`);
-        else if (!fs.existsSync(abs)) errors.push(`park.json file does not exist: ${f}`);
+        if (!isInside(workDir, abs)) errors.push(`park.json ${label} is outside the workspace: ${f}`);
+        else if (shouldExist && !fs.existsSync(abs)) errors.push(`park.json file does not exist: ${f}`);
+        else if (!shouldExist && fs.existsSync(abs)) errors.push(`park.json deleted file still exists: ${f}`);
       }
+    };
+    checkPaths(files, 'file', true);
+    checkPaths(deletedFiles, 'deleted file', false);
+    if (Array.isArray(files) && Array.isArray(deletedFiles)) {
+      const changed = new Set(files);
+      for (const f of deletedFiles) if (changed.has(f)) errors.push(`park.json file is listed as both changed and deleted: ${f}`);
     }
   }
 
@@ -69,5 +83,13 @@ export function validateArtifacts({ cfg, ticketId, workDir, artifactsDir, plan =
       lesson = null;
     }
   }
-  return { ok: errors.length === 0, errors, files: Array.isArray(park?.files) ? park.files : [], summary: park?.summary ?? '', lesson: lesson || null, readmeChanged };
+  return {
+    ok: errors.length === 0,
+    errors,
+    files: Array.isArray(park?.files) ? park.files : [],
+    deletedFiles: Array.isArray(park?.deletedFiles) ? park.deletedFiles : [],
+    summary: park?.summary ?? '',
+    lesson: lesson || null,
+    readmeChanged,
+  };
 }

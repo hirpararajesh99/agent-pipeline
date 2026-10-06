@@ -22,7 +22,7 @@ Write only plan.json into the artifacts folder. Do not edit, create or delete an
 - Follow the approved plan. Read the feature README first; it describes how the feature works today.
 - Search for existing code before creating new code. Reuse helpers, components and styles.
 - Update the feature README to describe the new behaviour before you finish.
-- Handoff files go in the artifacts folder: park.json, qa.json, and on a redo lesson.json.
+- Handoff files go in the artifacts folder: park.json, qa.json, and on a redo lesson.json. In park.json, use files for changed files that exist and deletedFiles for removed files.
 
 ## Documentation layout
 - docs/features/<feature>/README.md   current behaviour of the feature (the agent's starting point)

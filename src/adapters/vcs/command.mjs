@@ -18,7 +18,7 @@ export function commandVcs(cfg) {
       if (v.prepare) await sh(render(v.prepare, { ticket: ticket.id }), ws, 'VCS prepare');
       return { workDir: ws };
     },
-    async checkIn({ ticket, workDir, files, message }) {
+    async checkIn({ ticket, workDir, files, deletedFiles = [], message }) {
       if (v.addCommand) {
         for (const f of files) {
           const r = await runShell(render(v.addCommand, { file: shellQuote(f), ticket: ticket.id }), { cwd: workDir });
@@ -26,7 +26,7 @@ export function commandVcs(cfg) {
           if (r.code !== 0 && v.addIgnoreFailure === false) throw new Error(`VCS add failed: ${r.tail.trim().slice(-300)}`);
         }
       }
-      const cmd = render(v.checkinCommand, { files: files.map(shellQuote).join(' '), message, ticket: ticket.id });
+      const cmd = render(v.checkinCommand, { files: [...files, ...deletedFiles].map(shellQuote).join(' '), message, ticket: ticket.id });
       const r = await sh(cmd, workDir, 'VCS check-in');
       const m = v.refPattern ? new RegExp(v.refPattern, 'i').exec(r.tail) : null;
       return { ref: m ? m[1] : 'unknown' };
