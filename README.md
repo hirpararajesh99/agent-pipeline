@@ -4,6 +4,51 @@ A tool-agnostic, cross-platform pipeline that lets an AI coding agent (Codex, Cu
 that takes a prompt) work through tickets **one at a time**: plan, code, verify, test, document, check in, deploy.
 It is an enterprise-grade Agent-PC process, generalised. Node 18.17+ only, no npm dependencies, Windows/macOS/Linux.
 
+## Project Brain direction
+
+Project Brain is the project-knowledge layer within Agent Pipeline. Bootstrap and
+guided analysis are available alongside the index, reference graph, feature docs,
+and lesson retrieval. Finding-level freshness and incremental retrieval are planned.
+
+- [Vision and product requirements](docs/product/PROJECT-BRAIN.md)
+- [Architecture and proposed knowledge layout](docs/product/ARCHITECTURE.md)
+- [Roadmap and milestone acceptance criteria](docs/product/ROADMAP.md)
+- [Current capabilities, usage, and limitations](docs/features/project-brain/README.md)
+
+### Start guided analysis of an existing project
+
+From your target project folder (after `npm link` in the Agent Pipeline repository):
+
+```cmd
+agent-pipeline brain init --name first-look --scope .
+agent-pipeline brain status --name first-look
+```
+
+For a smaller first investigation, replace `.` with a module path such as `src/Billing`.
+No pipeline configuration, tracker, QA command, or .NET SDK is required for standalone
+bootstrap. An existing pipeline config is used if present; `--config` selects one.
+
+Open the `prompt` file printed by `brain status` and ask your external coding agent
+to follow it. The agent writes the specified JSON submission, including source
+hashes, line references, findings, unknowns, and limitations. Then run:
+
+```cmd
+agent-pipeline brain analyze --name first-look
+```
+
+This validates and accepts **one stage**, renders its Markdown, and reports the next
+prompt. Repeat through stage 08. It does not start an AI process or charge model tokens
+itself. Completed analysis is assembled into:
+
+```text
+.project-brain/runs/first-look/ai-analysis/final-context.md
+```
+
+Existing project docs are preserved. A changed application snapshot blocks acceptance;
+review the edits and restore them yourself, or begin a fresh run with a new `--name`.
+This is change detection, not an execution sandbox. Read the
+[full walkthrough and guard boundaries](docs/features/project-brain/README.md#guided-analysis-walkthrough).
+
 ## The whole flow
 
 ```
@@ -317,7 +362,7 @@ Existing READMEs have no front matter, so add `keywords:` to the ones you want m
 
 ## Known limits
 
-- Tested with a fake agent, the file tracker and `vcs: none` (27 tests). **Not tested** against the real
+- Tested with a fake agent, the file tracker and `vcs: none`, plus guided-analysis fixtures (41 tests). **Not tested** against the real
   Codex, Cursor or Claude CLIs, ClickUp, git remotes or TFVC. Run `doctor`, `--dry-run`, then one small ticket.
 - The README-updated check proves the file changed, not that the content is right. A person reviews docs.
 - Matching a ticket to a feature is keyword scoring; vague tickets may match nothing. The plan agent then

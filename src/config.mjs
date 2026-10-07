@@ -84,14 +84,14 @@ export const DEFAULTS = {
     maxContextEdges: 30,
     maxFileBytes: 1024 * 1024,
     adapters: ['dotnet'],
-    ignore: ['node_modules', '.git', '.pipeline', '.pipeline-state', 'dist', 'build', 'bin', 'obj', '.vs', '.idea'],
+    ignore: ['node_modules', '.git', '.pipeline', '.pipeline-state', '.project-brain', 'dist', 'build', 'bin', 'obj', '.vs', '.idea'],
   },
   plan: {
     enabled: true,
     perTick: 2,
     snapshotGuard: true,
     requireQaCoverage: true,
-    ignore: ['node_modules', '.git', 'bin', 'obj', '.vs', '.idea', 'dist', 'build', '.pipeline', '.pipeline-state'],
+    ignore: ['node_modules', '.git', 'bin', 'obj', '.vs', '.idea', 'dist', 'build', '.pipeline', '.pipeline-state', '.project-brain'],
   },
   docs: {
     featuresDir: 'docs/features',

@@ -17,6 +17,15 @@ The AI does the implementation.
 
 ---
 
+## Project Brain product direction
+
+Project Brain extends the existing knowledge foundation into reusable understanding
+of legacy projects: architecture, flows, business rules, rationale, and constraints.
+Read the [vision](docs/product/PROJECT-BRAIN.md),
+[architecture](docs/product/ARCHITECTURE.md), and
+[roadmap](docs/product/ROADMAP.md) before designing that work. The
+[feature README](docs/features/project-brain/README.md) identifies what is implemented.
+
 ## Problem it solves
 
 When developers use AI coding tools today, the workflow is fully manual:
@@ -49,7 +58,9 @@ Every AI output is validated before it is accepted:
 
 ### 3. Knowledge compounds over time
 Every redo requires the agent to write a `lesson.json`. The pipeline indexes all lessons and feeds
-them to future runs. The AI stops repeating the same mistakes.
+them to future runs. This supplies reusable guidance; it does not train the model or
+guarantee that mistakes will not recur. Lesson review, freshness, and retirement are
+planned Project Brain capabilities.
 
 ### 4. Zero external dependencies
 The pipeline runs on Node.js 18.17+ with no npm packages. This means no supply-chain risk,
@@ -103,6 +114,7 @@ no `node_modules`, no version conflicts, and trivial installation (`npm link`).
 | `src/artifacts.mjs` | Validates agent handoff files (park.json, qa.json, lesson.json) |
 | `src/config.mjs` | Config schema, defaults, deep-merge, validation |
 | `src/docs.mjs` | Feature README management, keyword scoring, lesson indexing |
+| `src/brain.mjs` | Project Brain bootstrap, guided stage validation, snapshot checks and synthesis |
 | `src/indexer.mjs`, `src/indexers/` | Deterministic project index, reference graph, impact lookup and stack-specific analyzers (.NET initially) |
 | `src/state.mjs` | Atomic JSON state store (one file per key in stateDir) |
 | `src/lock.mjs` | File-based locking with heartbeat and stale-lock recovery |
@@ -191,10 +203,15 @@ Key sections:
 
 ## Roadmap (planned improvements)
 
+The [Project Brain roadmap](docs/product/ROADMAP.md) defines the knowledge-engine
+milestones and acceptance criteria. Bootstrap and guided analysis are implemented;
+finding-level freshness, developer rationale, and conflicts are next.
+
 - [ ] Additional tracker adapters: Jira, GitHub Issues, Linear, Azure DevOps
 - [ ] Parallel ticket execution (Git worktrees)
 - [ ] Webhook support (skip polling when tracker pushes events)
-- [ ] Web dashboard (`agent-pipeline serve`) with real-time SSE updates
+- [x] Web dashboard (`agent-pipeline serve`) with real-time SSE updates
+- [ ] Project Brain knowledge browsing and explainable task context in the dashboard
 - [ ] Slack/email notifications on failure or deploy
 - [ ] Per-feature agent model selection
 - [ ] Plugin system for custom validation steps
