@@ -24,6 +24,7 @@ export const BUILTIN = {
     allowedTools: 'Bash,Edit,Write,Read,Glob,Grep',
     modelArgs: ['--model', '{model}'],
     plan: { allowedTools: 'Read,Glob,Grep,Write' },
+    brain: { allowedTools: 'Read,Glob,Grep,Write' },
   },
   cursor: {
     command: 'agent',
@@ -38,17 +39,19 @@ const SPAWN_FAIL = /is not recognized as an internal or external command|command
 const LOGIN_FAIL = /not logged in|please log ?in|login required|authentication (failed|required)|unauthorized|invalid api key|sign in/i;
 
 export function providerName(cfg, job) {
-  return job === 'plan' && cfg.agent.plan.provider ? cfg.agent.plan.provider : cfg.agent.provider;
+  if (job === 'plan' && cfg.agent.plan.provider) return cfg.agent.plan.provider;
+  if (job === 'brain' && cfg.agent.brain?.provider) return cfg.agent.brain.provider;
+  return cfg.agent.provider;
 }
 
 export function providerSpec(name, cfg, job = 'code') {
   const builtin = BUILTIN[name] ?? { promptMode: 'stdin', args: [] };
-  const { plan: builtinPlan, ...base } = builtin;
+  const { plan: builtinPlan, brain: builtinBrain, ...base } = builtin;
   const spec = {
     ...base,
-    ...(job === 'plan' ? builtinPlan ?? {} : {}),
+    ...(job === 'plan' ? builtinPlan ?? {} : job === 'brain' ? builtinBrain ?? {} : {}),
     ...(cfg.agent.providers?.[name] ?? {}),
-    ...(job === 'plan' ? cfg.agent.plan.providers?.[name] ?? {} : {}),
+    ...(job === 'plan' ? cfg.agent.plan.providers?.[name] ?? {} : job === 'brain' ? cfg.agent.brain?.providers?.[name] ?? {} : {}),
   };
   if (!spec.command) throw new Error(`Agent provider "${name}" has no command. Define agent.providers.${name}.command in the config.`);
   return spec;
@@ -56,7 +59,7 @@ export function providerSpec(name, cfg, job = 'code') {
 
 export function buildInvocation(name, cfg, { promptFile, cwd, ticket, job = 'code' }) {
   const spec = providerSpec(name, cfg, job);
-  const model = spec.model ?? (job === 'plan' ? cfg.agent.plan.model : '') ?? '';
+  const model = spec.model ?? (job === 'plan' ? cfg.agent.plan.model : job === 'brain' ? cfg.agent.brain?.model : '') ?? '';
   const useModel = model || cfg.agent.model || '';
   const vars = {
     promptFile,
@@ -81,7 +84,7 @@ export async function runAgent(name, cfg, { promptFile, cwd, ticket, job = 'code
   const env = { ...process.env, ...cfg.agent.env };
   // The agent never needs tracker or deploy credentials: the pipeline owns those writes.
   for (const k of [cfg.tracker.tokenEnv, ...cfg.agent.scrubEnv]) if (k) delete env[k];
-  const minutes = job === 'plan' ? cfg.agent.plan.maxMinutes : cfg.agent.maxMinutes;
+  const minutes = job === 'plan' ? cfg.agent.plan.maxMinutes : job === 'brain' ? cfg.agent.brain?.maxMinutes ?? cfg.agent.maxMinutes : cfg.agent.maxMinutes;
   const started = Date.now();
   const res = await runCommand(inv.command, inv.args, { cwd, env, input: inv.input, timeoutMs: minutes * 60000, logFile, onTick });
   const ms = Date.now() - started;

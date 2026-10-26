@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, STATUS_KEYS, DEFAULTS } from './config.mjs';
-import { initBrain, analyzeBrain, brainStatus } from './brain.mjs';
+import { initBrain, analyzeBrain, brainStatus, runBrain } from './brain.mjs';
 import { providerName, providerSpec } from './adapters/agents/index.mjs';
 import { createTracker } from './adapters/trackers/index.mjs';
 import { commandExists } from './exec.mjs';
@@ -42,10 +42,11 @@ Docs
   docs impact <path>            Show direct indexed relationships for a project file or asset
   docs scaffold <slug> [--title T]   Create docs/features/<slug>/README.md to fill in
 
-Project Brain (prompt-first; no AI process is started)
+Project Brain
   brain init [--name NAME] [--scope PATH]  Bootstrap analysis (default name: default, scope: .)
   brain status [--name NAME]              Verify snapshot and show the next prompt
   brain analyze [--name NAME]             Accept the next agent submission and render findings
+  brain run [--name NAME]                 Run all remaining stages with the configured AI provider
 
 Options
   --config <file>               Config path (default: PIPELINE_CONFIG or ./pipeline.config.json)
@@ -179,8 +180,9 @@ async function docsCmd(cfg, args) {
 }
 
 async function brainCmd(cfg, args, flags) {
-  if (args.length !== 1 || !['init', 'status', 'analyze'].includes(args[0])) throw new Error('Usage: brain init [--scope PATH] [--name NAME] | brain status [--name NAME] | brain analyze [--name NAME]');
+  if (args.length !== 1 || !['init', 'status', 'analyze', 'run'].includes(args[0])) throw new Error('Usage: brain init [--scope PATH] [--name NAME] | brain status [--name NAME] | brain analyze [--name NAME] | brain run [--name NAME]');
   if (flags.scope !== undefined && args[0] !== 'init') throw new Error('--scope is only valid for brain init');
+  if (args[0] === 'run') return console.log(JSON.stringify(await runBrain(cfg, { name: flags.name }), null, 2));
   const command = { init: initBrain, status: brainStatus, analyze: analyzeBrain }[args[0]];
   console.log(JSON.stringify(command(cfg, { name: flags.name, scope: flags.scope }), null, 2));
 }

@@ -10,6 +10,37 @@ process.stdin.on('end', () => {
   const id = get('ASSIGNED TICKET');
   const art = get('ARTIFACTS DIR');
   const workDir = get('WORK DIR') ?? process.cwd();
+  if (job === 'BRAIN' || prompt.includes('Only write .project-brain/runs/')) {
+    const line = prompt.split('\n').find((value) => value.startsWith('Only write '));
+    const marker = prompt.indexOf('Only write ');
+    const output = prompt.slice(marker + 11, prompt.indexOf('.json', marker) + 5);
+    const stage = path.basename(output, '.json');
+    const runDir = path.dirname(path.dirname(output));
+    const index = JSON.parse(fs.readFileSync(path.join(process.cwd(), runDir, 'knowledge', 'project.json'), 'utf8'));
+    const evidencePath = index.selectedFiles.find((file) => file.endsWith('.cs') || file.endsWith('.aspx')) ?? index.selectedFiles[0];
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    fs.writeFileSync(output, JSON.stringify({ schemaVersion: 1, stage, snapshotId: index.snapshotId, scope: index.scope,
+      summary: `Automated stage ${stage} summary`, findings: [{ id: `${stage}-automated`, statement: 'A project source file was inspected', certainty: 'verified', verification: 'Read the indexed source file.', evidence: [{ path: evidencePath, hash: index.files[evidencePath], startLine: 1, endLine: 1 }] }],
+      unknowns: [], limitations: ['Fixture agent does not perform semantic analysis.'] }));
+    return;
+  }
+  const brainSubmission = /Only write (\.project-brain\/runs\/[^\s]+\/submissions\/(\d\d)\.json)/.exec(prompt);
+  if (brainSubmission) {
+    const output = brainSubmission[1];
+    const stage = brainSubmission[2];
+    const runDir = path.dirname(path.dirname(output));
+    const index = JSON.parse(fs.readFileSync(path.join(process.cwd(), runDir, 'knowledge', 'project.json'), 'utf8'));
+    const evidencePath = index.selectedFiles.find((file) => /\.(?:cs|aspx)$/i.test(file)) ?? index.selectedFiles[0];
+    const source = fs.readFileSync(path.join(process.cwd(), evidencePath), 'utf8');
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    fs.writeFileSync(output, JSON.stringify({
+      schemaVersion: 1, stage, snapshotId: index.snapshotId, scope: index.scope,
+      summary: `Automated stage ${stage} summary`,
+      findings: [{ id: `${stage}-automated`, statement: 'A project source file was inspected', certainty: 'verified', verification: 'Read the indexed source file.', evidence: [{ path: evidencePath, hash: index.files[evidencePath], startLine: 1, endLine: 1 }] }],
+      unknowns: [], limitations: source ? ['Fixture agent does not perform semantic analysis.'] : [],
+    }));
+    return;
+  }
   fs.mkdirSync(art, { recursive: true });
   const write = (f, o) => fs.writeFileSync(path.join(art, f), JSON.stringify(o));
 

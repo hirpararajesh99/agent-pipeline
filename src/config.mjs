@@ -19,6 +19,7 @@ export const DEFAULTS = {
     scrubEnv: [],
     quotaPatterns: ['rate limit', 'usage limit', 'quota', 'too many requests', '\\b429\\b'],
     plan: { provider: '', model: '', maxMinutes: 20, providers: {} },
+    brain: { provider: '', model: '', maxMinutes: 30, providers: {} },
   },
   tracker: {
     type: 'file',

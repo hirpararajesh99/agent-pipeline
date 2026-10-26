@@ -6,7 +6,7 @@ import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DEFAULTS } from '../src/config.mjs';
-import { initBrain, analyzeBrain, brainStatus, BRAIN_STAGES } from '../src/brain.mjs';
+import { initBrain, analyzeBrain, brainStatus, runBrain, BRAIN_STAGES } from '../src/brain.mjs';
 import { readJson, writeJson } from '../src/util.mjs';
 import { acquireLock } from '../src/lock.mjs';
 
@@ -200,4 +200,17 @@ test('CLI supports standalone bootstrap and reports failures with a nonzero exit
   const failed = call('analyze');
   assert.equal(failed.status, 1);
   assert.match(failed.stderr, /Application snapshot changed/);
+});
+
+test('brain run invokes the configured agent for every remaining validated stage', async (t) => {
+  const s = setup(t, true);
+  s.cfg.stateDir = path.join(s.root, '.pipeline-state');
+  s.cfg.agent = { ...s.cfg.agent, provider: 'fake', maxMinutes: 1, providers: {
+    fake: { command: process.execPath, args: [path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'fake-agent.mjs')], promptMode: 'stdin' },
+  } };
+  initBrain(s.cfg);
+  const result = await runBrain(s.cfg);
+  assert.equal(result.status, 'complete');
+  assert.equal(result.completed.length, 8);
+  assert.match(fs.readFileSync(path.join(s.root, result.synthesis), 'utf8'), /Automated stage 08 summary/);
 });
