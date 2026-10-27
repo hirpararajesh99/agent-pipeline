@@ -191,7 +191,13 @@ After installing the npm package globally, the equivalent command is:
 agent-pipeline init
 ```
 
-`init` creates `pipeline.config.json`, `AGENTS.md`, `CLAUDE.md`, `jobs/`, `docs/`, and a sample `tickets.json`.
+`init` creates `pipeline.config.json`, `AGENTS.md`, `jobs/`, `docs/`, and a sample `tickets.json`.
+Shared coding instructions live in `AGENTS.md`. Claude Code v2.1.277+ supports loading it
+directly when AGENTS.md support is enabled and no `CLAUDE.md` or `CLAUDE.local.md` in the
+working directory or its ancestors takes precedence. Verify loaded files with `/memory`.
+See the [Claude Code instruction-loading documentation](https://code.claude.com/docs/en/memory#agentsmd).
+Existing projects keep their instruction files when `init` runs; migrate any unique rules
+into `AGENTS.md` before removing an old `CLAUDE.md` import wrapper.
 The sample `DEMO-1` ticket is only an example; block it before working on real tickets:
 
 ```cmd

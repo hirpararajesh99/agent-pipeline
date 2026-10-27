@@ -17,7 +17,7 @@ const HELP = `agent-pipeline - plan, code, verify, test and document tickets wit
 Usage: agent-pipeline <command> [options]
 
 Setup
-  init                          Create starter config, AGENTS.md, CLAUDE.md, job files, docs/ skeleton, tickets.json
+  init                          Create starter config, AGENTS.md, job files, docs/ skeleton, tickets.json
   doctor                        Check Node, config, AI tool, tracker, QA command, docs folders
 
 Run
@@ -124,7 +124,6 @@ function init() {
   };
   one('pipeline.config.example.json', 'pipeline.config.json');
   one('AGENTS.md', 'AGENTS.md');
-  one('CLAUDE.md', 'CLAUDE.md');
   one('tickets.example.json', 'tickets.json');
   copyTree(path.join(src, 'jobs'), 'jobs', report);
   copyTree(path.join(src, 'docs'), 'docs', report);

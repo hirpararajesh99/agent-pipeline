@@ -1,9 +1,27 @@
 # Agent instructions for agent-pipeline
 
-This file is read by Codex, Claude Code, Cursor, and any other AI coding tool working on the
+This file contains shared instructions for Codex, Claude Code, Cursor, and other AI coding tools working on the
 **agent-pipeline codebase itself** (not on a user project that runs the pipeline).
 
 Read `PRODUCT.md` first — it explains what the system does and why each file exists.
+
+## Instruction loading and workflow
+
+- Keep repository instructions here; do not recreate a separate `CLAUDE.md` wrapper.
+- Codex discovers `AGENTS.md` automatically. Claude Code v2.1.277+ supports it directly
+  when its built-in AGENTS.md support is enabled and no `CLAUDE.md`, `.claude/CLAUDE.md`,
+  or `CLAUDE.local.md` in the working directory or its ancestors takes precedence.
+  Check `/memory` for loaded files; older sessions need an upgrade or a local compatibility import.
+- Read the files being changed and follow existing patterns before implementing a change.
+- For Project Brain work, read `docs/product/PROJECT-BRAIN.md`,
+  `docs/product/ARCHITECTURE.md`, `docs/product/ROADMAP.md`, and
+  `docs/features/project-brain/README.md`. Distinguish implemented behavior from planned work.
+- Check the working tree first and preserve unrelated user changes.
+- Use `npm test` for the full offline suite. Use web research when the task requires current
+  documentation; browser inspection can be useful for the dashboard in `src/dashboard.html`.
+
+References: [Codex instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+and [Claude Code instructions](https://code.claude.com/docs/en/memory#agentsmd).
 
 ---
 
@@ -20,6 +38,10 @@ src/
   artifacts.mjs               Validates agent handoff files (park.json, qa.json, lesson.json)
   config.mjs                  Config schema (DEFAULTS), deepMerge, loadConfig, validate
   docs.mjs                    Feature README seeding, keyword scoring, lesson indexing
+  brain.mjs                   Project Brain bootstrap, guided analysis and synthesis
+  indexer.mjs, indexers/      Project index, reference graph, impact lookup and stack analyzers
+  plan.mjs                    Plan validation and persistence
+  preflight.mjs               Ticket readiness checks
   state.mjs                   Atomic JSON state store keyed by filename in stateDir
   lock.mjs                    File-based lock with heartbeat and stale-lock recovery
   exec.mjs                    Shell runner: runShell (with log), runCommand, commandExists
@@ -35,7 +57,8 @@ src/
     vcs/none.mjs              No-op VCS (returns workDir as-is, no check-in)
 templates/                    Files copied verbatim by `agent-pipeline init`
 test/
-  pipeline.test.mjs           23 integration tests using Node's built-in test runner
+  pipeline.test.mjs           Pipeline integration tests using Node's built-in test runner
+  brain.test.mjs              Project Brain validation and workflow tests
   fixtures/fake-agent.mjs     Fake AI agent used in tests (reads FAKE_MODE env var)
   fixtures/fake-qa.mjs        Fake QA script used in tests (reads FAKE_QA env var)
 ```
@@ -61,10 +84,18 @@ test/
 6. **Redact secrets before logging or posting.** Use `redact(text, ctx.secrets)` from `util.mjs`
    before any text goes to a tracker comment or a log that could be read by a human or another agent.
 
-7. **Tests must stay green.** Run `npm test` after every change. All 23 tests must pass.
+7. **Tests must stay green.** Run `npm test` after every change. The full suite must pass.
    Tests use the `fake-agent` and `fake-qa` fixtures — no real AI tool or network required.
 
 8. **Preserve existing comments and docstrings** unless you are changing the code they document.
+
+9. **Preserve synchronous configuration.** Do not make `loadConfig` or `buildConfig` async.
+
+10. **Preserve state storage and adapter isolation.** Keep state as a flat directory of JSON
+    files and do not introduce module-level mutable state in adapters.
+
+11. **Protect shared sanitization.** Update relevant tests whenever changing `sanitizeText`
+    or `redact` behavior.
 
 ---
 
@@ -129,7 +160,7 @@ The test suite uses `node:test` (built into Node 18+):
 ```bash
 npm test
 # or
-node --test test/pipeline.test.mjs
+node --test test/pipeline.test.mjs test/brain.test.mjs
 ```
 
 Each test uses `setup()` which:

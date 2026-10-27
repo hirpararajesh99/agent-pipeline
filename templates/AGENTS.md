@@ -1,7 +1,10 @@
 # Agent instructions
 
-This file is the single source of truth for every coding tool. Codex and Cursor read it natively; Claude
-Code reads CLAUDE.md, which imports this file. Put project rules here, not in tool-specific files.
+Keep shared project instructions in this file. Codex and Cursor support AGENTS.md;
+Claude Code v2.1.277+ can read it directly when its AGENTS.md support is enabled and no
+CLAUDE.md or CLAUDE.local.md in the working directory or its ancestors takes precedence.
+Check loaded instructions with /memory in Claude Code. Older Claude Code sessions need
+an upgrade or a locally maintained compatibility import. Put project rules here.
 
 ## How you are run
 A scheduler gives you one assigned ticket and one job at a time. The prompt starts with `JOB: PLAN` or
