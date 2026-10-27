@@ -178,7 +178,7 @@ async function codingStage(ctx, ticket, provider) {
     fs.writeFileSync(path.join(artifactsDir, 'plan.json'), JSON.stringify(plan, null, 2));
   }
   const comments = preflightComments;
-  const context = findContext(workDir, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: plan?.feature });
+  const context = findContext(workDir, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: plan?.feature, paths: plan?.files ?? [] });
   const indexContext = findIndexContext(buildProjectIndex(workDir, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: context });
 
   const failure = state.get('failures', {})[id];

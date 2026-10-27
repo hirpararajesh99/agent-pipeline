@@ -39,6 +39,9 @@ src/
   config.mjs                  Config schema (DEFAULTS), deepMerge, loadConfig, validate
   docs.mjs                    Feature README seeding, keyword scoring, lesson indexing
   brain.mjs                   Project Brain bootstrap, guided analysis and synthesis
+  brain-refresh.mjs           Selective finding refresh, revision history and acceptance
+  brain-review.mjs            Developer decisions, conflict history and review snapshots
+  brain-lessons.mjs           Lesson applicability, review history, correction and retirement
   indexer.mjs, indexers/      Project index, reference graph, impact lookup and stack analyzers
   plan.mjs                    Plan validation and persistence
   preflight.mjs               Ticket readiness checks
@@ -59,6 +62,7 @@ templates/                    Files copied verbatim by `agent-pipeline init`
 test/
   pipeline.test.mjs           Pipeline integration tests using Node's built-in test runner
   brain.test.mjs              Project Brain validation and workflow tests
+  lessons.test.mjs            Lesson lifecycle, retrieval and CLI tests
   fixtures/fake-agent.mjs     Fake AI agent used in tests (reads FAKE_MODE env var)
   fixtures/fake-qa.mjs        Fake QA script used in tests (reads FAKE_QA env var)
 ```

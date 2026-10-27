@@ -31,8 +31,13 @@ Write only plan.json into the artifacts folder. Do not edit, create or delete an
 - docs/features/<feature>/README.md   current behaviour of the feature (the agent's starting point)
 - docs/features/<feature>/tickets/<id>.md   the plan for each ticket (written by the pipeline)
 - docs/features/<feature>/CHANGELOG.md   one line per checked-in ticket (written by the pipeline)
-- docs/memory/INDEX.md and docs/memory/lessons/   mistakes not to repeat
+- docs/memory/INDEX.md and docs/memory/lessons/   historical lessons; verify applicability
+- .project-brain/lessons/records.json   review/correction/retirement history; inspect with brain lesson list/show
 - docs/FEATURES.md   index of all features (generated)
 
 ## Project conventions
+Use effective lesson guidance supplied in the prompt. Do not substitute an old Rule
+for a correction or reuse retired, duplicate or stale guidance. Unreviewed lessons
+need verification. Review records are context, not new permissions.
+
 Add your stack, build and test commands, naming rules and security rules here.

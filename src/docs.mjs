@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { ensureDir } from './util.mjs';
+import { lessonSelection } from './brain-lessons.mjs';
 
 const STOP = new Set(('the and for with that this from have has had are was were not but you your our into when then than them they their there what which will would should ' +
   'could can may might just also only more most some any all each per via use used using add adds added new old get set show shows page button field screen user users ticket').split(' '));
@@ -66,7 +67,7 @@ function readIndexRows(root, cfg) {
  * Deterministic retrieval, no AI involved: which feature docs and lessons are relevant to this ticket.
  * The result is injected into the agent prompt as "read these first".
  */
-export function findContext(root, cfg, { id, title, description, comments = [], hintFeature }) {
+export function findContext(root, cfg, { id, title, description, comments = [], hintFeature, paths = [] }) {
   const text = [title, description, ...comments].join(' ');
   const lower = text.toLowerCase();
   const tk = new Set(tokens(text));
@@ -91,11 +92,11 @@ export function findContext(root, cfg, { id, title, description, comments = [], 
       const changelog = fs.existsSync(path.join(dir, 'CHANGELOG.md')) ? posix(cfg.docs.featuresDir, f.slug, 'CHANGELOG.md') : null;
       const tdir = path.join(dir, 'tickets');
       const plans = fs.existsSync(tdir) ? fs.readdirSync(tdir).filter((n) => n.endsWith('.md')).sort().slice(-5).map((n) => posix(cfg.docs.featuresDir, f.slug, 'tickets', n)) : [];
-      return { slug: f.slug, title: f.title, readme: f.readme, score: f.score, changelog, plans };
+      return { slug: f.slug, title: f.title, readme: f.readme, score: f.score, changelog, plans, paths: f.paths };
     });
 
   const slugs = new Set(features.map((f) => f.slug));
-  const lessons = readIndexRows(root, cfg)
+  const lessons = lessonSelection(root, cfg, readIndexRows(root, cfg), { text, paths: [...paths, ...features.flatMap((f) => f.paths)] })
     .map((r) => {
       let s = 0;
       if (id && r.ticket === id) s += 10;
@@ -107,7 +108,8 @@ export function findContext(root, cfg, { id, title, description, comments = [], 
     .filter((r) => r.score >= 3 && r.file && fs.existsSync(path.join(root, r.file)))
     .sort((a, b) => b.score - a.score)
     .slice(0, cfg.docs.maxLessons)
-    .map((r) => ({ file: r.file, summary: r.summary, ticket: r.ticket }));
+    .map((r) => ({ file: r.file, summary: r.summary, ticket: r.ticket, review: r.review,
+      scope: r.scope, applicability: r.applicability, revision: r.revision, freshness: r.freshness }));
   return { features, lessons };
 }
 

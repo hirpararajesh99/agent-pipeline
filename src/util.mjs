@@ -36,6 +36,22 @@ export function readJson(file, fallback) {
 
 export const writeJson = (file, value) => atomicWrite(file, JSON.stringify(value, null, 2) + '\n');
 
+// Knowledge paths must stay relative and must not traverse symlinks/junctions.
+export function safeProjectPath(root, rel) {
+  if (typeof rel !== 'string' || !rel || rel.includes('\\') || rel.includes(':') || rel.includes('\0') ||
+      path.posix.isAbsolute(rel) || rel.split('/').some((s) => !s || s === '.' || s === '..')) {
+    throw new Error('Brain path must be a canonical project-relative path');
+  }
+  let target = root;
+  for (const part of rel.split('/')) {
+    target = path.join(target, part);
+    try {
+      if (fs.lstatSync(target).isSymbolicLink()) throw new Error(`Brain path traverses a symlink: ${rel}`);
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  return target;
+}
+
 export function render(template, vars) {
   return String(template).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 }

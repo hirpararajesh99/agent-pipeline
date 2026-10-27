@@ -1,6 +1,8 @@
 # Project Brain delivery roadmap
 
-Status: foundation and Milestone 1 implemented; later milestones are planned. Current
+Status (2026-10-27): foundation and Milestones 1–2 implemented, including finding
+freshness, selective refresh, developer review history and lesson lifecycle.
+Milestones 3–5 remain planned. Current
 capabilities are tracked in the [feature README](../features/project-brain/README.md).
 Product requirements live in the [vision](PROJECT-BRAIN.md).
 
@@ -14,14 +16,15 @@ than a complete project-understanding system.
 ## 1. Bootstrap and guided analysis — implemented
 
 `brain init`, `brain analyze`, and `brain status` now provide a prompt-first workflow
-for an external agent, including module scope and resumable stages. `brain refresh`
-and `brain context` remain future design candidates. Runtime implementation is in
+for an external agent, including module scope and resumable stages. `brain run`
+automates remaining stages with the configured provider and the same validator.
+`brain refresh` is covered in Milestone 2; `brain context` remains a future design candidate. Runtime implementation is in
 `src/brain.mjs`; the [usage guide](../features/project-brain/README.md#guided-analysis-walkthrough)
 explains JSON submissions, generated Markdown, and guard coverage.
 
 Delivery evidence: `test/brain.test.mjs` covers both .NET fixture variants, eight-stage
 completion, invalid outputs, snapshot changes, repeated initialization, interrupted
-rendering, and CLI usage. The full suite has 41 passing tests. This is fixture-based
+rendering, CLI usage, and automated eight-stage execution with a fake provider. This is fixture-based
 validation; the real-project maintenance pilot remains Milestone 4.
 
 Acceptance criteria:
@@ -36,7 +39,41 @@ Acceptance criteria:
   evidence paths, interrupted stages, and repeated initialization.
 - The implementation explicitly reports analyzer limitations and required tools.
 
-## 2. Freshness, rationale, and conflicts — next milestone
+## 2. Freshness, rationale, and conflicts — implemented
+
+Deliver this milestone in these steps:
+
+- [x] **2a. Inspect freshness:** `brain freshness --name NAME` reports accepted
+  findings as current/stale/unchecked, preserves certainty and prior outputs, and
+  detects source changes made inside or outside the pipeline. It works with existing
+  runs. Tests cover deleted evidence, unrelated files, integrity checks, and CLI use.
+- [x] **2b. Selective refresh:** `brain refresh --name SOURCE --to NEW` creates a
+  review of stale findings, or selected IDs via `--findings`. `--name NEW --accept`
+  validates revised/retired findings against new evidence. Immutable base records,
+  per-finding revision/predecessor identity, unchanged inherited records, and all
+  prior runs preserve history. Preparation and acceptance recover interrupted
+  rendering and final-state writes. Tests cover revisions, retirement, batches,
+  chaining, evidence rejection, snapshot drift, tampering, locks, symlinks, and CLI use.
+- [x] **2c. Developer rationale and conflicts:** scoped attributed decisions with
+  supersession, pinned finding/decision references, explicit two-position conflicts,
+  ownership, resolution and reopening history. An atomic project-wide event ledger
+  preserves prior records. New refreshes capture relevant review context and block
+  acceptance on open conflicts or changed context. Tests cover persistence, invalid
+  transitions, tampering, locking, recovery guards, scope filtering and CLI display.
+  See the [review guide](../features/project-brain/REVIEW.md). Attribution is caller-supplied;
+  authenticated identities and automatic conflict discovery are outside this step.
+- [x] **2d. Lesson lifecycle:** scoped applicability, evidence freshness, duplicate
+  suggestions/review, correction, retirement and preserved history. Retrieval uses
+  effective rules and excludes retired, duplicate and stale reviewed lessons, including
+  workspace policy in worktrees. Legacy lessons remain labelled unreviewed. See the
+  [lesson guide](../features/project-brain/LESSONS.md) and `test/lessons.test.mjs`.
+
+Step 2a compares cited file bytes only; it is not semantic revalidation or a live
+monitor. Step 2b uses external analysis and an explicit acceptance command; it does
+not authenticate reviewers or regenerate original stage summaries. All four steps
+are delivered with local fixture coverage (87 passing tests); semantic truth,
+real-provider validation and measured pilot outcomes remain outside this evidence.
+See the [usage guide](../features/project-brain/README.md#finding-freshness-after-source-changes).
 
 Acceptance criteria:
 
@@ -77,6 +114,10 @@ Acceptance criteria:
   improvement without worse review/validation outcomes; no fixed savings claim yet.
 
 ## 5. Broader access and adoption
+
+Current release assessment: early source-code developer preview; public beta gates
+are not complete. See the [release readiness record](RELEASE-READINESS.md) for
+verified checks, remaining blockers, and the order of external testing.
 
 After the pilot, prioritize a knowledge browser and chat/task entry in the dashboard,
 additional language analyzers, and tracker integrations such as Jira. Automated queues

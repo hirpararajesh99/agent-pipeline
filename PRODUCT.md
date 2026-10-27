@@ -59,8 +59,9 @@ Every AI output is validated before it is accepted:
 ### 3. Knowledge compounds over time
 Every redo requires the agent to write a `lesson.json`. The pipeline indexes all lessons and feeds
 them to future runs. This supplies reusable guidance; it does not train the model or
-guarantee that mistakes will not recur. Lesson review, freshness, and retirement are
-planned Project Brain capabilities.
+guarantee that mistakes will not recur. Lesson review, applicability, freshness,
+correction, duplicate review and retirement are implemented, with preserved history
+and exclusion of retired/stale reviewed guidance from ticket context.
 
 ### 4. Zero external dependencies
 The pipeline runs on Node.js 18.17+ with no npm packages. This means no supply-chain risk,
@@ -115,6 +116,9 @@ no `node_modules`, no version conflicts, and trivial installation (`npm link`).
 | `src/config.mjs` | Config schema, defaults, deep-merge, validation |
 | `src/docs.mjs` | Feature README management, keyword scoring, lesson indexing |
 | `src/brain.mjs` | Project Brain bootstrap, guided stage validation, snapshot checks and synthesis |
+| `src/brain-refresh.mjs` | Selective finding refresh, preserved revision history and explicit acceptance |
+| `src/brain-review.mjs` | Developer rationale, scoped decisions, conflict ownership and history |
+| `src/brain-lessons.mjs` | Lesson applicability, evidence checks, review history and retirement |
 | `src/indexer.mjs`, `src/indexers/` | Deterministic project index, reference graph, impact lookup and stack-specific analyzers (.NET initially) |
 | `src/state.mjs` | Atomic JSON state store (one file per key in stateDir) |
 | `src/lock.mjs` | File-based locking with heartbeat and stale-lock recovery |
@@ -205,7 +209,8 @@ Key sections:
 
 The [Project Brain roadmap](docs/product/ROADMAP.md) defines the knowledge-engine
 milestones and acceptance criteria. Bootstrap and guided analysis are implemented;
-finding-level freshness, developer rationale, and conflicts are next.
+on-demand finding freshness, selective refresh, developer decision/conflict history
+and lesson lifecycle are available. Milestone 3 explainable context is next.
 
 - [ ] Additional tracker adapters: Jira, GitHub Issues, Linear, Azure DevOps
 - [ ] Parallel ticket execution (Git worktrees)

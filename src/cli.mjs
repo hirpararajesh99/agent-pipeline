@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, STATUS_KEYS, DEFAULTS } from './config.mjs';
-import { initBrain, analyzeBrain, brainStatus, runBrain } from './brain.mjs';
+import { initBrain, analyzeBrain, brainStatus, brainFreshness, runBrain } from './brain.mjs';
+import { refreshBrain } from './brain-refresh.mjs';
+import { brainReview, recordReview, runReviewSnapshot } from './brain-review.mjs';
+import { lessonKnowledge, lessonDuplicates, recordLesson } from './brain-lessons.mjs';
 import { providerName, providerSpec } from './adapters/agents/index.mjs';
 import { createTracker } from './adapters/trackers/index.mjs';
 import { commandExists } from './exec.mjs';
@@ -10,7 +13,7 @@ import { findContext, isFeatureSlug, rebuildFeatureIndex, seedReadme, slugify } 
 import { buildProjectIndex, findImpact, writeProjectIndex } from './indexer.mjs';
 import { runOnce } from './orchestrator.mjs';
 import { State } from './state.mjs';
-import { readJson, sleep, writeJson } from './util.mjs';
+import { readJson, redact, sleep, writeJson } from './util.mjs';
 
 const HELP = `agent-pipeline - plan, code, verify, test and document tickets with any AI coding tool
 
@@ -45,6 +48,25 @@ Docs
 Project Brain
   brain init [--name NAME] [--scope PATH]  Bootstrap analysis (default name: default, scope: .)
   brain status [--name NAME]              Verify snapshot and show the next prompt
+  brain freshness [--name NAME]           Compare accepted findings with current source (no AI)
+  brain refresh --name SOURCE --to NEW    Prepare review of stale findings in a new run
+                                --findings ID,ID selects only those IDs (default: all stale findings)
+  brain refresh --name NEW --accept      Accept a reviewed refresh submission
+  brain knowledge [--scope PATH]         Show developer decisions, conflicts and history
+  brain decision add|list|show           Record rationale; add requires --id --by --statement --reason
+                                optional: --scope PATH --supersedes ID --findings RUN:ID
+  brain conflict add|list|show           Record disagreement; add requires --id --by --summary --left --right
+                                optional: --scope PATH --owner NAME --findings RUN:ID --decisions ID
+  brain conflict resolve                --id ID --by OWNER --resolution TEXT --reason TEXT [--decision ID]
+  brain conflict assign|reopen           --id ID --by NAME --reason TEXT (assign also needs --owner)
+  brain lesson list|duplicates           [--scope PATH] Inspect lessons or possible duplicates
+  brain lesson show                     --file PATH Show current revision and preserved history
+  brain lesson review                   --file PATH --by NAME --reason TEXT --applicability TEXT
+                                optional: --scope PATH --evidence PATH,PATH (empty clears evidence)
+  brain lesson correct                  --file PATH --by NAME --reason TEXT --rule TEXT
+                                optional: --scope PATH --applicability TEXT --evidence PATH,PATH
+  brain lesson retire                   --file PATH --by NAME --reason TEXT
+  brain lesson duplicate                --file PATH --by NAME --reason TEXT --duplicate-of PATH
   brain analyze [--name NAME]             Accept the next agent submission and render findings
   brain run [--name NAME]                 Run all remaining stages with the configured AI provider
 
@@ -59,7 +81,7 @@ function parse(argv) {
     const a = argv[i];
     if (a.startsWith('--')) {
       const k = a.slice(2);
-      if (['dry-run', 'once'].includes(k)) flags[k] = true;
+      if (['dry-run', 'once', 'accept'].includes(k)) flags[k] = true;
       else flags[k] = argv[++i];
     } else pos.push(a);
   }
@@ -179,11 +201,73 @@ async function docsCmd(cfg, args) {
 }
 
 async function brainCmd(cfg, args, flags) {
-  if (args.length !== 1 || !['init', 'status', 'analyze', 'run'].includes(args[0])) throw new Error('Usage: brain init [--scope PATH] [--name NAME] | brain status [--name NAME] | brain analyze [--name NAME] | brain run [--name NAME]');
+  if (args[0] === 'lesson') return lessonCmd(cfg, args, flags);
+  if (['knowledge', 'decision', 'conflict'].includes(args[0])) return reviewCmd(cfg, args, flags);
+  if (args.length !== 1 || !['init', 'status', 'freshness', 'refresh', 'analyze', 'run'].includes(args[0])) throw new Error('Usage: brain init|status|freshness|analyze|run [--name NAME] | brain refresh --name SOURCE --to NEW | brain refresh --name NEW --accept');
   if (flags.scope !== undefined && args[0] !== 'init') throw new Error('--scope is only valid for brain init');
+  if (Object.hasOwn(flags, 'findings') && typeof flags.findings !== 'string') throw new Error('--findings requires a comma-separated list of IDs');
+  if (args[0] === 'refresh') return console.log(JSON.stringify(refreshBrain(cfg, {
+    name: flags.name, to: flags.to, accept: !!flags.accept,
+    findings: flags.findings === undefined ? [] : flags.findings.split(','),
+  }), null, 2));
+  if (['to', 'findings', 'accept'].some((key) => Object.hasOwn(flags, key))) throw new Error('--to, --findings and --accept are only valid for brain refresh');
   if (args[0] === 'run') return console.log(JSON.stringify(await runBrain(cfg, { name: flags.name }), null, 2));
-  const command = { init: initBrain, status: brainStatus, analyze: analyzeBrain }[args[0]];
-  console.log(JSON.stringify(command(cfg, { name: flags.name, scope: flags.scope }), null, 2));
+  const command = { init: initBrain, status: brainStatus, freshness: brainFreshness, analyze: analyzeBrain }[args[0]];
+  const result = command(cfg, { name: flags.name, scope: flags.scope });
+  if (['status', 'freshness'].includes(args[0])) result.review = runReviewSnapshot(cfg, flags.name);
+  console.log(reviewJson(result));
+}
+
+function reviewJson(value) {
+  return JSON.stringify(value, (_key, item) => typeof item === 'string' ? redact(item) : item, 2);
+}
+
+async function lessonCmd(cfg, args, flags) {
+  const action = args[1];
+  const options = {
+    list: ['scope'], duplicates: ['scope'], show: ['file'],
+    review: ['file', 'by', 'reason', 'applicability', 'scope', 'evidence'],
+    correct: ['file', 'by', 'reason', 'rule', 'applicability', 'scope', 'evidence'],
+    retire: ['file', 'by', 'reason'], duplicate: ['file', 'by', 'reason', 'duplicate-of'],
+  };
+  if (args.length !== 2 || !Object.hasOwn(options, action)) throw new Error('Usage: brain lesson list|show|duplicates|review|correct|retire|duplicate');
+  for (const key of Object.keys(flags)) if (!['config', ...options[action]].includes(key) || typeof flags[key] !== 'string') {
+    throw new Error(`Invalid or missing lesson option: --${key}`);
+  }
+  if (action === 'show' && !flags.file) throw new Error('lesson show requires --file');
+  const input = { ...flags, evidence: flags.evidence === undefined ? undefined : flags.evidence === '' ? [] : flags.evidence.split(',') };
+  const result = action === 'duplicates' ? lessonDuplicates(cfg.workspace, cfg, input)
+    : ['list', 'show'].includes(action) ? lessonKnowledge(cfg.workspace, cfg, input)
+    : recordLesson(cfg.workspace, cfg, action, input);
+  console.log(reviewJson(result));
+}
+
+async function reviewCmd(cfg, args, flags) {
+  const [kind, action] = args;
+  const allowed = ['config'];
+  if (kind === 'knowledge' || action === 'list') allowed.push('scope');
+  else if (action === 'show') allowed.push('id', 'scope');
+  else if (action === 'add') allowed.push('id', 'by', 'scope', 'findings', 'decisions',
+    ...(kind === 'decision' ? ['statement', 'reason', 'supersedes'] : ['summary', 'left', 'right', 'owner']));
+  else allowed.push('id', 'by', 'reason', ...(action === 'resolve' ? ['resolution', 'decision'] : action === 'assign' ? ['owner'] : []));
+  for (const key of Object.keys(flags)) if (!allowed.includes(key) || flags[key] === undefined) throw new Error(`Invalid or missing review option: --${key}`);
+  if (kind === 'knowledge') {
+    if (args.length !== 1) throw new Error('Usage: brain knowledge [--scope PATH]');
+    return console.log(reviewJson(brainReview(cfg, { scope: flags.scope })));
+  }
+  if (args.length !== 2 || !(kind === 'decision' ? ['add', 'list', 'show'] : ['add', 'list', 'show', 'resolve', 'assign', 'reopen']).includes(action)) {
+    throw new Error('Usage: brain decision add|list|show | brain conflict add|list|show|resolve|assign|reopen');
+  }
+  if (['list', 'show'].includes(action)) {
+    const view = brainReview(cfg, { scope: flags.scope });
+    const records = kind === 'decision' ? view.decisions : view.conflicts;
+    const result = action === 'list' ? records : records.find((r) => r.id === flags.id);
+    if (!result) throw new Error('Unknown review ID; use --id with show');
+    return console.log(reviewJson(result));
+  }
+  const list = (key) => flags[key] === undefined ? [] : flags[key].split(',').map((s) => s.trim());
+  const result = recordReview(cfg, `${kind}.${action}`, { ...flags, findings: list('findings'), decisions: list('decisions') });
+  console.log(reviewJson(result));
 }
 
 async function ticketCmd(cfg, args, flags) {

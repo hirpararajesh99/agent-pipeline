@@ -2,13 +2,17 @@
 
 A tool-agnostic, cross-platform pipeline that lets an AI coding agent (Codex, Cursor, Claude Code, or any CLI
 that takes a prompt) work through tickets **one at a time**: plan, code, verify, test, document, check in, deploy.
-It is an enterprise-grade Agent-PC process, generalised. Node 18.17+ only, no npm dependencies, Windows/macOS/Linux.
+It is an early developer preview. Node 18.17+ only, no npm dependencies; designed for Windows/macOS/Linux.
+See [release readiness and remaining validation](docs/product/RELEASE-READINESS.md) before adopting it.
 
 ## Project Brain direction
 
 Project Brain is the project-knowledge layer within Agent Pipeline. Bootstrap and
 guided analysis are available alongside the index, reference graph, feature docs,
-and lesson retrieval. Finding-level freshness and incremental retrieval are planned.
+and lesson retrieval. On-demand finding freshness checks and selective refresh are
+available, alongside attributed developer decisions, conflict history and lesson
+review/correction/retirement. Milestones 1–2 are implemented; explainable, budgeted
+task retrieval is next in Milestone 3. See the [lesson lifecycle guide](docs/features/project-brain/LESSONS.md).
 
 - [Vision and product requirements](docs/product/PROJECT-BRAIN.md)
 - [Architecture and proposed knowledge layout](docs/product/ARCHITECTURE.md)
@@ -48,6 +52,79 @@ Existing project docs are preserved. A changed application snapshot blocks accep
 review the edits and restore them yourself, or begin a fresh run with a new `--name`.
 This is change detection, not an execution sandbox. Read the
 [full walkthrough and guard boundaries](docs/features/project-brain/README.md#guided-analysis-walkthrough).
+
+### Automate the analysis stages
+
+With the configured coding CLI installed and authenticated, run:
+
+```cmd
+agent-pipeline brain run --name first-look
+```
+
+This invokes the AI provider for every remaining stage, validates submissions, and
+stops on a provider or validation failure. Accepted stages are preserved on retry.
+It uses `agent.brain` overrides or the main `agent` settings; without a config it
+uses the default Codex provider. Provider usage charges may apply. Use the provider's
+own permissions to constrain execution; snapshot checks detect changes after they occur.
+
+### Check knowledge after code changes
+
+```cmd
+agent-pipeline brain freshness --name first-look
+```
+
+This prints JSON listing changed files and accepted findings marked `current`,
+`stale`, or `unchecked`. It works after the source snapshot changes, preserves the
+original analysis, and invokes no AI. `current` means cited file hashes still match;
+it does not prove the claim or cover uncited dependencies. Findings without evidence
+are `unchecked`. Added or uncited files are listed for review even when no finding
+is marked stale. Use selective refresh below to revise existing findings, or a full
+new analysis run when the scope changes or you need new findings.
+
+### Refresh selected findings and preserve history
+
+After code changes, prepare a refresh from an existing analysis:
+
+```cmd
+agent-pipeline brain refresh --name first-look --to first-look-r2
+```
+
+This creates a new run with a prompt for the stale findings and an immutable copy
+of previous knowledge. Give the reported prompt to your coding agent; it writes
+only the refresh submission. Review that JSON, then accept it:
+
+```cmd
+agent-pipeline brain refresh --name first-look-r2 --accept
+agent-pipeline brain freshness --name first-look-r2
+```
+
+The new run contains `knowledge/findings.json` and `ai-analysis/refresh.md`.
+Unselected findings retain their original revisions; revised or retired findings
+link to their previous records. The original run is preserved. Use the latest
+accepted run as the source of the next refresh.
+
+To review only specific IDs, add `--findings 01-example,02-example` when preparing
+the run (replace these with real IDs from `brain freshness`). This overrides the
+default stale selection, supports batches, and can select unchecked findings or
+claims affected by uncited changes. Omitted stale findings remain stale.
+Refresh commands invoke no AI; `brain run` does not process refresh runs.
+See [the refresh guide](docs/features/project-brain/README.md#selective-refresh-and-revision-history)
+for submission rules and recovery.
+
+### Keep developer rationale and resolve conflicts
+
+```sh
+agent-pipeline brain decision add --id module-local --scope App --by Rajesh --statement "Keep the module in process" --reason "Preserve transactions"
+agent-pipeline brain knowledge --scope App
+```
+
+Use new decision IDs with `--supersedes` to retain earlier reasoning. `brain conflict`
+supports recording both positions, assigning an owner, resolving a disagreement,
+and reopening it with a reason. The history survives analysis and refresh runs.
+New refreshes capture the relevant review context and refuse acceptance while a
+relevant conflict is open or that context has changed. Caller names are attribution,
+not authenticated identities. See [developer decisions and conflict history](docs/features/project-brain/REVIEW.md)
+for commands, examples, and limits.
 
 ## The whole flow
 
@@ -368,7 +445,7 @@ Existing READMEs have no front matter, so add `keywords:` to the ones you want m
 
 ## Known limits
 
-- Tested with a fake agent, the file tracker and `vcs: none`, plus guided-analysis fixtures (41 tests). **Not tested** against the real
+- Tested with a fake agent, the file tracker and `vcs: none`, plus guided-analysis and freshness fixtures. **Not tested** against the real
   Codex, Cursor or Claude CLIs, ClickUp, git remotes or TFVC. Run `doctor`, `--dry-run`, then one small ticket.
 - The README-updated check proves the file changed, not that the content is right. A person reviews docs.
 - Matching a ticket to a feature is keyword scoring; vague tickets may match nothing. The plan agent then

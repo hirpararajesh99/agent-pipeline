@@ -8,6 +8,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Completed Milestone 2 with lesson review, applicability, freshness, duplicate review, correction and retirement; effective guidance and workspace-aware filtering in ticket prompts
+- Developer decision/conflict CLI commands, preserved project-wide review history, and scoped review-context checks during refresh acceptance
+- `brain refresh`: focused finding revision/retirement in a new named run, explicit acceptance, preserved history, batch selection, and interrupted-write recovery
+- `brain freshness --name NAME`: on-demand per-finding evidence checks that preserve accepted analysis and report changed, deleted, and uncited source files
+- Documented automated `brain run`, remaining Milestone 2 steps, and developer-preview release readiness
 - Project Brain Milestone 1: standalone `brain init/status/analyze`, module-scoped named runs, eight external-agent prompts, validated evidence-linked findings, snapshot change detection, resumable stage rendering, and final context synthesis (14 new tests)
 - Project Brain vision, architecture direction, phased roadmap and acceptance criteria, plus current-capability documentation distinguishing implemented foundations from planned analysis and freshness features
 - Project Knowledge Engine: deterministic HTML/CSS/JS/manifest/asset index, local-reference graph, impact lookup, compact file context in agent prompts, and initial legacy/modern .NET analysis
@@ -26,6 +31,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   (renamed and de-branded from internal HealingCloud example)
 
 ### Changed
+- Added an npm package file allowlist for runtime files, templates, and documentation
+- Consolidated shared instructions in `AGENTS.md`; removed root/template `CLAUDE.md` wrappers and stopped generating them during `init`
 - README: removed HealingCloud-specific language; project is now fully generic
 - README: updated example config filename reference to `enterprise-tfvc.config.json`
 

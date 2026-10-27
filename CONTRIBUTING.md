@@ -38,7 +38,7 @@ agent-pipeline doctor
 | Node 18.17 minimum | No APIs newer than Node 18.17 |
 | Atomic state writes | Use `writeJson` from `util.mjs`, never raw `fs.writeFileSync` on state |
 | Trust nothing from the AI | Validate all agent output before using it |
-| Tests must pass | All 23 tests green after every change (`npm test`) |
+| Tests must pass | The full suite must pass after every change (`npm test`) |
 
 ---
 
@@ -47,10 +47,10 @@ agent-pipeline doctor
 ```bash
 npm test
 # equivalent to:
-node --test test/pipeline.test.mjs
+node --test test/pipeline.test.mjs test/brain.test.mjs test/lessons.test.mjs
 ```
 
-Tests run in under 5 seconds. No real AI tool, tracker, or network required.
+No real AI tool, tracker, or network is required for the tests.
 The fake agent (`test/fixtures/fake-agent.mjs`) and fake QA (`test/fixtures/fake-qa.mjs`)
 simulate every scenario the pipeline handles.
 
@@ -124,7 +124,7 @@ myagent: {
 
 ## Pull request checklist
 
-- [ ] `npm test` passes (all 23 tests green)
+- [ ] `npm test` passes (the full suite is green)
 - [ ] No new npm dependencies added
 - [ ] New adapter has at least one test
 - [ ] `README.md` updated if the change is user-visible
