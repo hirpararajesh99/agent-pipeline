@@ -1,455 +1,381 @@
-# agent-pipeline v0.2
+# Agent Pipeline
 
-A tool-agnostic, cross-platform pipeline that lets an AI coding agent (Codex, Cursor, Claude Code, or any CLI
-that takes a prompt) work through tickets **one at a time**: plan, code, verify, test, document, check in, deploy.
-It is an early developer preview. Node 18.17+ only, no npm dependencies; designed for Windows/macOS/Linux.
-See [release readiness and remaining validation](docs/product/RELEASE-READINESS.md) before adopting it.
+Understand an existing codebase, keep team knowledge current, and guide AI coding agents from a ticket through planning, implementation and QA.
 
-## Project Brain direction
+**Project Brain** creates reusable architecture and code knowledge with source evidence, developer decisions and lessons. **The pipeline** coordinates your coding agent, tracker, tests and version control, one coding ticket at a time.
 
-Project Brain is the project-knowledge layer within Agent Pipeline. Bootstrap and
-guided analysis are available alongside the index, reference graph, feature docs,
-and lesson retrieval. On-demand finding freshness checks and selective refresh are
-available, alongside attributed developer decisions, conflict history and lesson
-review/correction/retirement. Milestones 1–2 are implemented; explainable, budgeted
-task retrieval is next in Milestone 3. See the [lesson lifecycle guide](docs/features/project-brain/LESSONS.md).
+Built with Node.js built-ins and zero npm dependencies. **Developer preview:** Project Brain Milestones 1 and 2 are implemented; public-beta and production readiness are not established. See [release readiness](docs/product/RELEASE-READINESS.md) for tested workflows and remaining checks.
 
-- [Vision and product requirements](docs/product/PROJECT-BRAIN.md)
-- [Architecture and proposed knowledge layout](docs/product/ARCHITECTURE.md)
-- [Roadmap and milestone acceptance criteria](docs/product/ROADMAP.md)
-- [Current capabilities, usage, and limitations](docs/features/project-brain/README.md)
+[Quick start](#quick-start-analyse-an-existing-project) · [Team workflows](#keep-project-knowledge-current) · [Ticket automation](#run-your-first-ticket) · [Limitations](#current-status-and-limitations) · [Documentation](#documentation)
 
-### Start guided analysis of an existing project
+## Who this helps
 
-From your target project folder (after `npm link` in the Agent Pipeline repository):
+- **Developers joining an unfamiliar project:** investigate architecture, entry points, business rules and validation gaps, with links back to source.
+- **Teams maintaining legacy applications:** start with one module, record constraints and preserve the reasons behind design decisions.
+- **Maintainers using AI coding tools:** supply relevant feature docs and lessons, validate agent handoffs, and run configured checks before check-in.
 
-```cmd
+For example, a new developer reviewing billing can trace its flow, ask the team why it shares an order transaction, record that decision, and later refresh findings after the implementation changes. This supports an architecture review; it does not certify clean architecture or readiness to scale.
+
+## What you can do today
+
+| Need | Available capability |
+| --- | --- |
+| Understand a project or module | Eight guided analysis stages covering overview, architecture, flows, business rules, integrations, patterns, risks and validation |
+| Check where a claim came from | Findings with source hashes, line references, certainty, verification notes and explicit unknowns |
+| Detect outdated knowledge | On-demand checks for changed or deleted evidence, including edits made outside the pipeline |
+| Update only selected findings | Refresh runs with revisions, retirement and preserved historical records |
+| Preserve team reasoning | Scoped, attributed decisions with rationale and supersession |
+| Resolve disagreements | Explicit conflicts with both positions, ownership, resolution and reopening history |
+| Maintain useful lessons | Applicability, evidence checks, duplicate review, corrections and retirement |
+| Deliver ticket work | Planning, handoff validation, build/test gates, scripted QA, check-in and optional batch deployment |
+
+The static index includes selected web-file relationships and heuristic .NET analysis. Deeper interpretation comes from your coding agent and developer review.
+
+## Quick start: analyse an existing project
+
+### 1. Install from source
+
+You need Node.js 18.17+ and npm. Git is needed for the clone command.
+
+```sh
+git clone https://github.com/hirpararajesh99/agent-pipeline.git
+cd agent-pipeline
+npm link
+agent-pipeline help
+```
+
+This links your local checkout as the `agent-pipeline` command. The instructions use source installation and do not depend on a published npm release. In Windows PowerShell, use `npm.cmd` if script policy prevents running `npm`.
+
+You can also invoke the source directly: `node /absolute/path/to/agent-pipeline/bin/pipeline.mjs help`. On Windows, for example: `node D:\Code\agent-pipeline\bin\pipeline.mjs help`.
+
+### 2. Prepare an analysis
+
+Open a terminal in a copy or checkout of the project you want to understand. Replace the example path with yours:
+
+```sh
+cd /path/to/your-project
 agent-pipeline brain init --name first-look --scope .
 agent-pipeline brain status --name first-look
 ```
 
-For a smaller first investigation, replace `.` with a module path such as `src/Billing`.
-No pipeline configuration, tracker, QA command, or .NET SDK is required for standalone
-bootstrap. An existing pipeline config is used if present; `--config` selects one.
+Replace `.` with a real module path such as `src/Billing` for a smaller investigation. Bootstrap creates an inventory, initial context and ordered analysis prompts under `.project-brain/runs/first-look/`.
 
-Open the `prompt` file printed by `brain status` and ask your external coding agent
-to follow it. The agent writes the specified JSON submission, including source
-hashes, line references, findings, unknowns, and limitations. Then run:
+**Standalone Brain analysis does not require `agent-pipeline init`, a tracker or a QA script.** If `pipeline.config.json` exists, it is loaded and validated; `--config` selects a different configuration. Without configuration, the current directory is the workspace.
 
-```cmd
+These two commands prepare the work; they do not invoke an AI provider or complete the architecture analysis.
+
+### 3. Choose how to run the analysis
+
+**Use your existing coding-agent session:** open the `prompt` file reported by `brain status` and give it to the agent in the target project. You can say:
+
+> Follow the instructions in the reported prompt file. Inspect the actual source, record evidence and unknowns, and write only the requested submission.
+
+After the agent writes the JSON submission:
+
+```sh
 agent-pipeline brain analyze --name first-look
 ```
 
-This validates and accepts **one stage**, renders its Markdown, and reports the next
-prompt. Repeat through stage 08. It does not start an AI process or charge model tokens
-itself. Completed analysis is assembled into:
+This validates one stage, renders its findings and reports the next prompt. Repeat the prompt/submission/acceptance cycle through stage 08.
+
+**Or automate the remaining stages:** with the provider CLI installed and authenticated:
+
+```sh
+agent-pipeline brain run --name first-look
+```
+
+Without configuration, this uses the built-in Codex preset. With configuration, `agent.brain` overrides the main `agent` settings. Provider usage charges may apply. A failed stage stops the run; retrying retains accepted stages.
+
+`brain init/status/analyze` do not invoke a provider themselves. Your external agent performs the analysis. Use its permissions to constrain execution: snapshot checks detect covered file changes after they occur and are not an execution sandbox.
+
+### 4. Read the result
+
+After all eight stages complete, open:
 
 ```text
 .project-brain/runs/first-look/ai-analysis/final-context.md
 ```
 
-Existing project docs are preserved. A changed application snapshot blocks acceptance;
-review the edits and restore them yourself, or begin a fresh run with a new `--name`.
-This is change detection, not an execution sandbox. Read the
-[full walkthrough and guard boundaries](docs/features/project-brain/README.md#guided-analysis-walkthrough).
+The synthesis links to detailed stage findings and lists unknowns and limitations. A simplified, illustrative finding might read:
 
-### Automate the analysis stages
+| Field | Example |
+| --- | --- |
+| Statement | Billing writes an outbox record inside the order transaction |
+| Certainty | Inferred |
+| Evidence | `src/Billing/CheckoutService.cs`, cited lines and recorded SHA-256 |
+| Verification | Read the transaction and outbox calls; runtime behavior not tested |
+| Unknown | Whether the delivery worker can produce duplicate external requests |
 
-With the configured coding CLI installed and authenticated, run:
+Actual findings depend on your project and the agent's evidence. The validator checks structure and evidence references; a person still reviews the claim.
 
-```cmd
-agent-pipeline brain run --name first-look
+A run's main outputs are:
+
+```text
+.project-brain/runs/first-look/
+  RUN-ANALYSIS.md          Instructions for this run
+  project-context.md      Initial project context
+  knowledge/project.json  Inventory, scope and snapshot
+  prompts/                Eight ordered prompts
+  submissions/            Agent submissions
+  ai-analysis/            Accepted findings and final-context.md
 ```
 
-This invokes the AI provider for every remaining stage, validates submissions, and
-stops on a provider or validation failure. Accepted stages are preserved on retry.
-It uses `agent.brain` overrides or the main `agent` settings; without a config it
-uses the default Codex provider. Provider usage charges may apply. Use the provider's
-own permissions to constrain execution; snapshot checks detect changes after they occur.
+Use [the full Brain guide](docs/features/project-brain/README.md) for submission formats, snapshot exclusions and recovery. If source changes during analysis, acceptance is blocked; investigate the changes and start a new named run when necessary.
 
-### Check knowledge after code changes
+## Keep project knowledge current
 
-```cmd
+### Check freshness after code changes
+
+```sh
 agent-pipeline brain freshness --name first-look
 ```
 
-This prints JSON listing changed files and accepted findings marked `current`,
-`stale`, or `unchecked`. It works after the source snapshot changes, preserves the
-original analysis, and invokes no AI. `current` means cited file hashes still match;
-it does not prove the claim or cover uncited dependencies. Findings without evidence
-are `unchecked`. Added or uncited files are listed for review even when no finding
-is marked stale. Use selective refresh below to revise existing findings, or a full
-new analysis run when the scope changes or you need new findings.
+The JSON report lists source changes and accepted findings as `current`, `stale` or `unchecked`. Certainty is tracked separately. Matching cited bytes does not prove semantic validity; uncited changes still need review. Use this command after source edits; `brain status` enforces the original snapshot.
 
-### Refresh selected findings and preserve history
+### Refresh affected findings
 
-After code changes, prepare a refresh from an existing analysis:
+Prepare a new run using an existing run's stale findings:
 
-```cmd
+```sh
 agent-pipeline brain refresh --name first-look --to first-look-r2
 ```
 
-This creates a new run with a prompt for the stale findings and an immutable copy
-of previous knowledge. Give the reported prompt to your coding agent; it writes
-only the refresh submission. Review that JSON, then accept it:
+Give the reported prompt to your coding agent. After it writes the refresh submission, inspect it and accept it:
 
-```cmd
+```sh
 agent-pipeline brain refresh --name first-look-r2 --accept
 agent-pipeline brain freshness --name first-look-r2
 ```
 
-The new run contains `knowledge/findings.json` and `ai-analysis/refresh.md`.
-Unselected findings retain their original revisions; revised or retired findings
-link to their previous records. The original run is preserved. Use the latest
-accepted run as the source of the next refresh.
+The new run contains `knowledge/findings.json` and `ai-analysis/refresh.md`. Earlier runs and unselected finding revisions remain available. Use the latest accepted run as the source for later refreshes.
 
-To review only specific IDs, add `--findings 01-example,02-example` when preparing
-the run (replace these with real IDs from `brain freshness`). This overrides the
-default stale selection, supports batches, and can select unchecked findings or
-claims affected by uncited changes. Omitted stale findings remain stale.
-Refresh commands invoke no AI; `brain run` does not process refresh runs.
-See [the refresh guide](docs/features/project-brain/README.md#selective-refresh-and-revision-history)
-for submission rules and recovery.
+To choose a batch, add `--findings 01-example,02-example` during preparation, replacing those examples with actual finding IDs. Omitted stale findings remain stale. Refresh revises or retires existing findings; use a new analysis for new findings or a different scope.
 
-### Keep developer rationale and resolve conflicts
+Refresh commands do not invoke AI, and `brain run` does not process refresh runs. See [selective refresh and recovery](docs/features/project-brain/README.md#selective-refresh-and-revision-history).
+
+### Preserve decisions and resolve conflicts
 
 ```sh
-agent-pipeline brain decision add --id module-local --scope App --by Rajesh --statement "Keep the module in process" --reason "Preserve transactions"
-agent-pipeline brain knowledge --scope App
+agent-pipeline brain decision add --id billing-local --scope src/Billing --by Rajesh --statement "Keep billing in the application" --reason "Preserve the order transaction"
+agent-pipeline brain knowledge --scope src/Billing
 ```
 
-Use new decision IDs with `--supersedes` to retain earlier reasoning. `brain conflict`
-supports recording both positions, assigning an owner, resolving a disagreement,
-and reopening it with a reason. The history survives analysis and refresh runs.
-New refreshes capture the relevant review context and refuse acceptance while a
-relevant conflict is open or that context has changed. Caller names are attribution,
-not authenticated identities. See [developer decisions and conflict history](docs/features/project-brain/REVIEW.md)
-for commands, examples, and limits.
+Use a new decision ID with `--supersedes` to change a decision while retaining earlier reasoning. Conflicts explicitly record both positions:
 
-## The whole flow
-
-```
-ticket (not started / resume)
-  PLAN JOB   plan agent reads ticket + comments + feature docs + lessons, changes nothing
-             -> clear        : status "code ready", plan saved (acceptance checks AC1, AC2 ...)
-             -> need-info    : one plain-English question posted, status "need info"
-             -> high-risk    : plan saved, status "needs approval" (a person approves)
-ticket (code ready / redo)
-  CODE JOB   pipeline picks ONE ticket (redo first), prepares the workspace, seeds the feature README
-             coding agent gets: approved plan + feature README + lessons + human comments
-             agent writes code, updates the feature README, writes park.json + qa.json (+ lesson.json on redo)
-  VERIFY     pipeline checks: handoff valid, files inside the project, every AC covered by a QA step,
-             README updated, build + unit tests pass   (fail -> redo with evidence; 3 fails -> blocked)
-  QA         your QA command: exit 0 pass, 2 fail, 3 blocked
-  CHECK-IN   only the existing files and deletions in park.json + docs the pipeline writes: ticket plan, README, CHANGELOG,
-             lesson + index, feature index. Status "ai test pass".
-  DEPLOY     after batchMin tickets: deploy + smoke command, status "sign off"
+```sh
+agent-pipeline brain conflict add --id billing-boundary --scope src/Billing --by Rajesh --owner Priya --summary "Billing boundary disagreement" --left "Code uses direct calls" --right "Proposed design uses a service"
+agent-pipeline brain conflict resolve --id billing-boundary --by Priya --resolution "Keep direct calls for now" --reason "The service design needs transaction validation" --decision billing-local
 ```
 
-The plan job and the code job have separate locks, so you can run them from two schedules or together.
+New refreshes capture relevant decisions and conflicts. Acceptance requires no open relevant conflicts and unchanged captured review context. Resolving a conflict after preparation requires a new target run. Attribution uses caller-supplied names, not authenticated identities.
 
-## Preflight: save agent time and tokens
+See the [developer review guide](docs/features/project-brain/REVIEW.md) for ownership, reopening, references and history.
 
-Before the pipeline starts a plan or coding agent, it runs a deterministic, no-AI preflight. By default it
-requires a title and a meaningful description, finds the matching feature documentation and earlier lessons,
-and flags risk terms such as database, permissions, payments, deletion and secrets. An incomplete ticket is moved
-to `need info` before an agent is started. Risk signals are included in the focused prompt for the human and the
-plan agent to verify; they do not make an automatic product decision.
+### Review lessons instead of accumulating outdated advice
 
-Configure it in `pipeline.config.json`:
-
-```json
-"preflight": {
-  "enabled": true,
-  "requireDescription": true,
-  "minDescriptionChars": 20
-}
+```sh
+agent-pipeline brain lesson list
+agent-pipeline brain lesson duplicates
 ```
 
-## How the agent knows the feature (no AI involved in this step)
+For a file returned by `list`, use `brain lesson review` to record scope, applicability, evidence and rationale. Use `correct` to replace its effective rule, `duplicate` to record a reviewed duplicate, or `retire` to stop using it.
 
-Documentation lives in the project, next to the code (`docs/` by default):
+Ticket prompts use effective corrections and exclude retired, duplicate and stale reviewed lessons. Legacy lessons remain eligible as explicitly unreviewed guidance. Earlier revisions and original Markdown are preserved.
 
-| Path | Purpose | Written by |
-| --- | --- | --- |
-| `features/<feature>/README.md` | How the feature works today. The agent's starting point | Coding agent, every change |
-| `features/<feature>/tickets/<id>.md` | The plan for each ticket | Pipeline, from plan.json |
-| `features/<feature>/CHANGELOG.md` | One line per checked-in ticket | Pipeline |
-| `memory/INDEX.md`, `memory/lessons/` | Mistakes found on redo | Agent writes lesson.json, pipeline files it |
-| `FEATURES.md` | Index of all features | `agent-pipeline docs index` |
+See the [lesson lifecycle walkthrough](docs/features/project-brain/LESSONS.md) for runnable review/correction examples and limits.
 
-Each README starts with front matter (`title`, `keywords`, `paths`). Before every agent run the pipeline scores
-every feature against the ticket text and comments (keywords, title, folder names, README wording) and tells the
-agent which README, changelog, earlier ticket plans and lessons to read first. Check what it will find with:
+## Run your first ticket
 
-```
-agent-pipeline docs find "widget list needs a search box"
-```
+Ticket automation needs a configured coding agent, tracker and real QA command. Start with a small change in a disposable checkout, inspect the plan, then inspect the resulting diff and application.
 
-The pipeline also builds a dependency-aware project index for HTML, CSS, JavaScript, manifests, local assets and .NET solutions/projects.
-It gives each agent only the most relevant file paths and relationships before it explores code. Generate or inspect it with:
-
-```
-agent-pipeline docs scan
-agent-pipeline docs impact assets/logo.png
+```mermaid
+flowchart LR
+  A[Ticket] --> B[Preflight and plan]
+  B --> C{Plan decision}
+  C -->|Clear| D[Code]
+  C -->|Question or high risk| E[Human response]
+  E --> B
+  D --> F[Validate handoff and run checks]
+  F -->|Fail| G[Redo or blocked]
+  G --> D
+  F -->|Pass| H[Check-in]
+  H --> I[Optional batch deploy]
 ```
 
-The built-in .NET analyzer recognizes solution and project references, C# namespaces/types, legacy ASPX code-behind files,
-and modern ASP.NET routes and dependency-injection registrations. The analyzer interface is extensible for future Node,
-Python, Java and PHP project maps.
+For a high-risk plan, a person may approve it directly to coding; changed requirements return to planning.
 
-### Change or enhancement after a ticket is done
+### Configure the target project
 
-- A **new ticket for the same feature**: the pipeline matches it to the feature, so the plan agent reads the
-  README (which already describes the finished behaviour), the CHANGELOG, earlier ticket plans and lessons.
-- A **tester finds a defect**: set the ticket to `redo` and add a comment. The coding agent gets the comment,
-  must fix it, and must write a lesson.
-- **The scope changed**: add a comment and set `resume`. The plan agent re-plans (plan version 2) using the
-  earlier plan and the new comments, then the ticket goes back to `code ready`.
-- **No docs exist yet** (an existing project like Novva): the plan agent describes what the code does today
-  (`currentBehaviour`) and the pipeline creates the first README from it. Nothing has to be written by hand first.
+From the target project's root:
 
-## Statuses and who moves them
-
-| Status (default name) | Meaning | Moved by |
-| --- | --- | --- |
-| not started (`new`) | Waiting to be planned | Person creates ticket |
-| planning | Plan agent working | Pipeline |
-| need info | A question is waiting. Answer with `ticket comment`, then `ticket set <id> resume` | Pipeline -> person |
-| needs approval (`approval`) | High-risk plan. `ticket set <id> ready` to approve | Pipeline -> person |
-| code ready (`ready`) | Plan done, waiting for coding | Pipeline |
-| in development | Coding agent working | Pipeline |
-| development completed (`parked`) | Verified, waiting for QA | Pipeline |
-| ai testing | QA running | Pipeline |
-| ai test pass (`pass`) | Checked in, waiting for the deploy batch | Pipeline |
-| sign off | Deployed and smoke-checked; testers verify | Pipeline |
-| redo | QA failed, or a person sent it back | Pipeline or person |
-| resume | A person answered or changed scope, re-plan | Person |
-| blocked | 3 failed attempts or an environment problem. A developer looks, then sets `ready` or `resume` | Pipeline |
-
-All names are configurable under `tracker.statuses`. For ClickUp, create these statuses in the list first.
-
-## Step-by-step: first project pilot
-
-Use this process for the first ticket in every new project. Start with a small, low-risk change; do not make the
-first ticket a database migration, authentication change, payment change, deletion of business data, or deployment.
-
-### 1. Check prerequisites
-
-Install Node.js 18.17 or newer and one supported coding agent (`codex`, `claude`, Cursor's `agent`, or a configured
-custom command). Sign in to the coding agent once before using the pipeline.
-
-From the agent-pipeline repository, run the test suite before sharing a new version:
-
-```cmd
-cd E:\agent-pipeline
-npm.cmd test
-```
-
-On macOS/Linux, use `npm test`. The suite uses fake agents and requires no AI account or network access.
-
-### 2. Make the target project safe
-
-Commit the project or create a backup before the first run. Start with `vcs.type: "none"` only when working on a
-copy of the project or when a person will inspect every changed file. Prefer Git worktrees after the pilot is proven.
-
-### 3. Initialise the target project
-
-From the target project root, use the source directly during development:
-
-```cmd
-cd E:\my-project
-node E:\agent-pipeline\bin\pipeline.mjs init
-```
-
-After installing the npm package globally, the equivalent command is:
-
-```cmd
+```sh
 agent-pipeline init
 ```
 
-`init` creates `pipeline.config.json`, `AGENTS.md`, `jobs/`, `docs/`, and a sample `tickets.json`.
-Shared coding instructions live in `AGENTS.md`. Claude Code v2.1.277+ supports loading it
-directly when AGENTS.md support is enabled and no `CLAUDE.md` or `CLAUDE.local.md` in the
-working directory or its ancestors takes precedence. Verify loaded files with `/memory`.
-See the [Claude Code instruction-loading documentation](https://code.claude.com/docs/en/memory#agentsmd).
-Existing projects keep their instruction files when `init` runs; migrate any unique rules
-into `AGENTS.md` before removing an old `CLAUDE.md` import wrapper.
-The sample `DEMO-1` ticket is only an example; block it before working on real tickets:
+This seeds `pipeline.config.json`, `AGENTS.md`, `jobs/`, `docs/` and `tickets.json`, keeping existing files. Shared project instructions belong in `AGENTS.md`; check that your chosen agent loads them.
 
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs ticket set DEMO-1 blocked
+Edit the generated configuration before running a ticket:
+
+| Setting | What to configure |
+| --- | --- |
+| `agent.provider` | An installed, authenticated provider: built-in presets are `codex`, `claude`, `cursor`; custom commands are supported |
+| `tracker` | Local `tickets.json` or a configured ClickUp list |
+| `vcs.type` | `none` for a disposable pilot, `git` for Git check-in, or `command` for a custom VCS |
+| `gates.build`, `gates.unitTests` | Your project's build/test commands; blank entries skip those gates |
+| `qa.command` | A real QA script or command; the generated example path must be implemented or replaced |
+| `deploy.command`, `deploy.smokeCommand` | Optional deployment checks; leave deployment disabled for the first pilot |
+
+QA defaults are exit `0` for pass, `2` for fail and `3` for environment blocked. An always-successful placeholder does not validate the application. With `vcs.type: "none"`, edits happen in the configured workspace and there is no VCS commit.
+
+Check setup and block the sample ticket before adding real work:
+
+```sh
+agent-pipeline doctor
+agent-pipeline ticket set DEMO-1 blocked
 ```
 
-### 4. Configure the project
+The sample is created only when `tickets.json` did not already exist. If your file has no `DEMO-1`, skip that command. `doctor` checks setup; it does not establish that your QA script exercises the right behavior.
 
-Edit `pipeline.config.json`. At minimum, choose the coding provider and configure real build/test/QA commands for
-the project. A safe first configuration looks like this:
+### Add, plan and implement a small change
 
-```json
-{
-  "agent": {
-    "provider": "codex",
-    "maxMinutes": 30,
-    "plan": { "maxMinutes": 15 }
-  },
-  "vcs": { "type": "none" },
-  "gates": {
-    "build": "",
-    "unitTests": ""
-  },
-  "qa": {
-    "command": "your-real-qa-command"
-  },
-  "deploy": { "command": "" }
-}
+```sh
+agent-pipeline ticket add --id WEB-1 --title "Replace header logo" --description "Replace the header logo with assets/company-logo.png. It must appear on desktop and mobile. Preserve navigation, layout, colours and text."
+agent-pipeline run --dry-run
+agent-pipeline run --job plan
+agent-pipeline ticket show WEB-1
 ```
 
-`qa.command` is required. Do not use an always-successful command for normal work: it proves only that the pipeline
-ran, not that the website/application works. For a static website, a useful first QA script checks required assets,
-stale asset references, key pages, and—where possible—browser screenshots.
+Review scope, files, acceptance checks and risks before running coding:
 
-Check the configuration before starting work:
-
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs doctor
+```sh
+agent-pipeline run --job code
+agent-pipeline ticket show WEB-1
 ```
 
-Every required item should show `ok`.
+Each tick may select other eligible tickets; the first pilot should have only the intended ticket eligible. Clear plans become ready automatically. Plans requiring information or approval wait for a human action.
 
-### 5. Create a good ticket
+The pipeline validates handoff files, listed paths, acceptance-check QA coverage and documentation updates, then runs configured checks before check-in. Failed attempts carry evidence into retries; the default maximum is three.
 
-Include what changes, where it appears, expected result, what must not change, and test data/accounts if relevant.
-For example:
-
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs ticket add --id WEB-1 --title "Replace approved website logo" --description "What: replace the current logo with assets/company-logo.png. Where: header, footer, social metadata, favicon and publish mirror. Expected result: the approved logo appears on desktop and mobile. Do not change: navigation, page layout, colours or page text."
-```
-
-The deterministic preflight stops clearly incomplete tickets before an AI agent is started, saving tokens and cost.
-
-### 6. Plan before coding
-
-First see what the pipeline would select:
-
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs run --dry-run
-```
-
-Then create the plan:
-
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs run --job plan
-node E:\agent-pipeline\bin\pipeline.mjs ticket show WEB-1
-```
-
-Review the plan's scope, listed files, acceptance checks, risks and QA focus. No project code should change during
-planning. A `need info` result means add a human answer as a ticket comment, then set the ticket to `resume`.
-A `needs approval` result requires a person to set the ticket to `ready` before coding.
-
-### 7. Run the coding stage and review the result
-
-Only after the plan is acceptable:
-
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs run --job code
-node E:\agent-pipeline\bin\pipeline.mjs ticket show WEB-1
-```
-
-The pipeline validates the agent handoff, paths, acceptance-check QA coverage, feature documentation, build/unit-test
-gates, and your QA command before check-in. Review the file diff and the actual application/website before accepting
-the result.
-
-### 8. Correct a ticket safely
-
-Use the right status for the situation:
+### Respond to questions and failures
 
 | Situation | Action |
 | --- | --- |
-| Requirement/scope changed | Add a ticket comment, then set `resume`; the plan agent creates a new plan version. |
-| QA/tester found a defect | Add a ticket comment, then set `redo`; the coding agent receives the evidence and must write a lesson. |
-| Agent deleted obsolete files | The agent lists them in `park.json` `deletedFiles`, not `files`. |
-| Ticket is blocked after repeated failures | Inspect the current working tree, add the missing information/fix, then set `resume` to re-plan. |
+| `need info` | Add a `ticket comment`, then `ticket set ID resume` to re-plan |
+| `needs approval` | Inspect the high-risk plan; `ticket set ID ready` approves coding |
+| Requirements changed | Comment with the new scope, then set `resume` |
+| A defect is found | Comment with reproduction details, then set `redo`; a lesson is required |
+| Repeated failures or environment blockage | Inspect the failure and working tree, fix the cause, then set `resume` or `ready` as appropriate |
 
-Examples:
-
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs ticket comment WEB-1 "Use the approved transparent PNG. Remove the duplicate header wordmark."
-node E:\agent-pipeline\bin\pipeline.mjs ticket set WEB-1 resume
-node E:\agent-pipeline\bin\pipeline.mjs run --job plan
+```sh
+agent-pipeline ticket comment WEB-1 "Use the approved transparent PNG and preserve its aspect ratio."
+agent-pipeline ticket set WEB-1 resume
+agent-pipeline run --job plan
 ```
 
-### 9. Build and inspect project knowledge
+Default progress is `not started → planning → code ready → in development → development completed → ai testing → ai test pass`, then `sign off` after configured deployment. Status names can be mapped under `tracker.statuses`; ClickUp lists need the configured statuses.
 
-Generate the deterministic project index and reference graph at any time:
+## Configuration and daily operation
 
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs docs scan
-node E:\agent-pipeline\bin\pipeline.mjs docs impact assets\company-logo.png
+### Find relevant project context
+
+These commands use `pipeline.config.json` and do not invoke AI:
+
+```sh
+agent-pipeline docs scan
+agent-pipeline docs impact assets/company-logo.png
+agent-pipeline docs find "widget list needs a search box"
+agent-pipeline docs index
 ```
 
-This writes `docs/project-index.json`, `docs/project-graph.json`, and `docs/PROJECT-INDEX.md`. The pipeline also
-refreshes these files after a successful ticket. The plan/code agents receive only a compact, relevant subset of this
-map, reducing repeated repository exploration and token use.
+The index maps selected file relationships, including .NET project references, code-behind, namespaces/types and some routes/DI patterns. Feature selection uses keywords and paths. Lessons are filtered for review state and applicability. This is bounded heuristic retrieval; measured token budgets and graph expansion are Milestone 3 work.
 
-### 10. Use the dashboard and scheduling
+| Project path | Purpose |
+| --- | --- |
+| `docs/project-index.json`, `docs/project-graph.json`, `docs/PROJECT-INDEX.md` | Generated file inventory and relationships |
+| `docs/features/<feature>/README.md` | Current behavior; front matter supplies title, keywords and paths |
+| `docs/features/<feature>/tickets/` and `CHANGELOG.md` | Ticket plans and change history |
+| `docs/memory/INDEX.md` and `docs/memory/lessons/` | Indexed lessons from redo work |
+| `.project-brain/runs/` | Analysis and refresh runs |
+| `.project-brain/review/records.json` | Developer decision/conflict history |
+| `.project-brain/lessons/records.json` | Lesson review and revision history |
 
-Start the local dashboard from the target project folder:
+Existing feature documentation is reused. When a feature has no README, the planning workflow can describe current behavior and seed one. Future tasks still require source inspection.
 
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs serve --port 3000
+### Select providers and integrations
+
+Use `agent.provider` for coding, `agent.plan` for planning overrides, and `agent.brain` for automated analysis overrides. Presets live in [the agent adapter](src/adapters/agents/index.mjs); custom command/argument overrides live under `agent.providers.<name>`. Match the preset to your installed CLI's supported arguments.
+
+Supported adapters are file/ClickUp trackers and Git/custom-command/no-op VCS. The [enterprise example](templates/examples/enterprise-tfvc.config.json) illustrates TFVC and ClickUp configuration; it requires your own tools, credentials and QA/deployment commands.
+
+See [the starter configuration](templates/pipeline.config.example.json) and [all defaults](src/config.mjs). `--config PATH` or `PIPELINE_CONFIG` selects a configuration. Review configured Git push/PR and deployment behavior before enabling them.
+
+### Dashboard and scheduling
+
+```sh
+agent-pipeline serve --port 3000
+agent-pipeline status
 ```
 
-Open `http://localhost:3000`. Keep this command running while viewing live state. The current dashboard is an
-operator view; use `ticket show` for the complete saved ticket/plan record.
+The dashboard at `http://localhost:3000` is a local operator view. It is not yet a Project Brain knowledge browser. It has state-changing operations and no authentication; keep it local. Use `ticket show ID` for the saved ticket and plan.
 
-For safe automation, automate planning first:
+After proving a workflow, start with scheduled planning:
 
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs loop --job plan --interval 15
+```sh
+agent-pipeline loop --job plan --interval 15
 ```
 
-After the project has proven reliable, run both planning and coding on a schedule:
+`agent-pipeline loop --interval 15` runs the full scheduler. Task Scheduler, cron or another scheduler can also run individual ticks. Separate plan/code locks coordinate jobs; coding remains one ticket at a time.
 
-```cmd
-node E:\agent-pipeline\bin\pipeline.mjs loop --interval 15
+## Current status and limitations
+
+| Area | Status |
+| --- | --- |
+| Milestone 1: bootstrap and guided analysis | Implemented |
+| Milestone 2: freshness, refresh, decisions/conflicts and lesson lifecycle | Implemented |
+| Milestone 3: explainable context and incremental analysis | Next |
+| Milestone 4: measured legacy/modern .NET pilot | Planned |
+| Milestone 5: broader access and adoption | Planned |
+
+Local validation includes 87 passing tests on Windows with Node 24.22.1 and offline package/CLI smoke checks. The suite uses fake agents and local fixtures. The declared Node 18.17 minimum, macOS/Linux, real AI providers, ClickUp, Git remotes, TFVC and deployment still need release validation.
+
+Important boundaries:
+
+- Findings and matching evidence hashes need human interpretation. Static relationships are incomplete; dynamic behavior, performance and scaling require further investigation.
+- Accepted Brain findings and developer decisions are not yet automatically selected into everyday ticket prompts with an explainable budget. Existing feature/index/lesson retrieval is available.
+- Snapshot and artifact checks detect covered changes and malformed output; they do not sandbox agents. Agent permissions control execution.
+- Review names are caller-supplied. Local hash-linked history is not authenticated or tamper-proof storage.
+- Credential filtering and display redaction are best-effort. Keep secrets out of prompts and knowledge; external agents may send inspected content to their providers.
+- Time savings, token savings and fewer defects have not been measured. Completing milestones does not establish production readiness.
+
+See [release readiness](docs/product/RELEASE-READINESS.md) and [Brain guard boundaries](docs/features/project-brain/README.md) before adopting the preview.
+
+## How it fits your existing tools
+
+| Tool | Its role | Agent Pipeline's role |
+| --- | --- | --- |
+| Coding agent | Reads and changes code | Provides jobs/context and validates handoffs |
+| Ticket tracker | Stores work and discussion | Selects eligible work and updates configured statuses |
+| Build, test and CI tools | Execute project checks | Calls configured commands and handles their outcomes |
+| Version control | Stores changes and history | Prepares workspaces and performs configured check-in |
+| Project documentation | Explains the system | Adds evidence, freshness checks, decisions and reviewed lessons |
+
+## Documentation
+
+- [Project Brain guide](docs/features/project-brain/README.md): analysis, refresh, evidence formats and recovery.
+- [Developer review guide](docs/features/project-brain/REVIEW.md): decisions, conflicts, attribution and history.
+- [Lesson lifecycle](docs/features/project-brain/LESSONS.md): applicability, duplicates, corrections and retirement.
+- [Product overview](PRODUCT.md), [vision](docs/product/PROJECT-BRAIN.md), [architecture](docs/product/ARCHITECTURE.md) and [roadmap](docs/product/ROADMAP.md).
+- [Release readiness](docs/product/RELEASE-READINESS.md) and [changelog](CHANGELOG.md).
+- [Contributing](CONTRIBUTING.md) and [repository agent instructions](AGENTS.md).
+
+For contributors, run the offline regression suite from this repository:
+
+```sh
+npm test
 ```
 
-Windows Task Scheduler, cron, systemd timers and launchd can run one `agent-pipeline run` tick on a schedule.
-Locks make overlapping runs safe.
+No real AI account or network is required for these tests. Use `agent-pipeline help` for the full CLI command list.
 
-## Switching the AI tool
+## License
 
-`"agent": { "provider": "codex" | "claude" | "cursor" | "<your own>" }`. Use a different tool or model for
-planning: `"agent": { "plan": { "provider": "claude", "model": "..." } }`. Presets are in
-`src/adapters/agents/index.mjs`; override any field under `agent.providers.<name>` (all jobs) or
-`agent.plan.providers.<name>` (planning only). For Claude the planning job gets read-only tools by default.
-**CLI flags change between versions: check each tool's `--help` and adjust the preset.**
-
-## Safety built in
-
-- Plan agent is read-only: the pipeline snapshots the project and blocks the ticket if any file changed.
-- The agent never gets tracker or deploy credentials; questions go through `needinfo.json`.
-- Only files and deletedFiles listed in park.json (plus pipeline-written docs) are checked in. Paths are validated.
-- Ticket text and comments are marked as data in the prompt; pipeline comments are tagged and never fed back.
-- A missing or logged-out AI tool puts that tool on a 15-minute hold without using up an attempt.
-- Quota hits hold only that provider; optional `agent.fallback`.
-- Atomic state writes; corrupt state raises an error instead of resetting.
-
-## Example: Enterprise setup with TFVC and ClickUp
-
-Start from `templates/examples/enterprise-tfvc.config.json`: ClickUp filters, `tf.cmd` check-in, Playwright
-QA, ADO batch deploy, and your existing `Documentation/Product/<Feature>/` folders as the docs location.
-Existing READMEs have no front matter, so add `keywords:` to the ones you want matched reliably and check with
-`docs find`.
-
-## Known limits
-
-- Tested with a fake agent, the file tracker and `vcs: none`, plus guided-analysis and freshness fixtures. **Not tested** against the real
-  Codex, Cursor or Claude CLIs, ClickUp, git remotes or TFVC. Run `doctor`, `--dry-run`, then one small ticket.
-- The README-updated check proves the file changed, not that the content is right. A person reviews docs.
-- Matching a ticket to a feature is keyword scoring; vague tickets may match nothing. The plan agent then
-  searches the code itself and picks the feature name.
-- One coding ticket at a time (planning can run in parallel). Git worktrees would allow more later.
-- Agents run with the access you give them. Use a dedicated machine, VM or container and tight sandbox settings.
-- Unattended use of a consumer subscription login may be restricted by each vendor's terms.
+[MIT](LICENSE).
