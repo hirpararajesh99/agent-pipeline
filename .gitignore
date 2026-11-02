@@ -1,3 +1,4 @@
 node_modules/
+.pipeline-state/
 .env
 .DS_Store
