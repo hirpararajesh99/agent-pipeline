@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Pipeline · Projects</title>
+  <style>
+    :root { color-scheme:light; --bg:#edf5f4; --surface:#fff; --surface-soft:#f7fbfa; --text:#172628; --muted:#697d7e; --line:#dbeae8; --accent:#007d72; --accent-strong:#006a61; --accent-soft:#e0f4f1; --hero:#e6e3ff; --hero-text:#4135a3; --code:#f1f7f6; --danger:#a33c32; --shadow:0 2px 8px #193e3b0a; font:14px/1.55 system-ui,-apple-system,'Segoe UI',sans-serif; background:var(--bg); color:var(--text) }
+    :root[data-theme="dark"] { color-scheme:dark; --bg:#101b1e; --surface:#19282b; --surface-soft:#213235; --text:#eef7f5; --muted:#a2b8b5; --line:#334b4b; --accent:#67d9c9; --accent-strong:#8aeadb; --accent-soft:#244945; --hero:#303054; --hero-text:#d8d2ff; --code:#101d1f; --danger:#ffb2a5; --shadow:0 2px 9px #0003 }
+    * { box-sizing:border-box } body { margin:0; min-width:320px } [hidden] { display:none !important } h1,h2,h3,p { margin-top:0 } h1 { font-size:26px; line-height:1.2; letter-spacing:-.035em; margin-bottom:7px } h2 { font-size:18px; line-height:1.35; letter-spacing:-.02em; margin-bottom:8px } p,small { color:var(--muted) } button,input,select,textarea { font:inherit }
+    .app-header { height:68px; background:var(--surface); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; padding:0 28px; position:sticky; top:0; z-index:5 } .brand-mark { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; color:white; background:#007d72; font-weight:800; font-size:17px } .brand-title { font-size:16px; font-weight:750; letter-spacing:-.02em } .header-divider { width:1px; height:25px; background:var(--line) } .header-context { color:var(--muted); font-size:13px } .header-spacer { flex:1 } .local-badge { padding:6px 11px; border:1px solid var(--line); border-radius:99px; color:var(--muted); font-size:12px } .local-badge:before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#13a68d; margin-right:7px } .theme-toggle { min-width:95px }
+    .layout { display:grid; grid-template-columns:210px minmax(0,1fr); min-height:calc(100vh - 68px) } .sidebar { background:var(--surface); border-right:1px solid var(--line); padding:25px 14px; display:flex; flex-direction:column; gap:5px } .nav-caption { color:var(--muted); font-size:10px; letter-spacing:.11em; font-weight:750; padding:0 12px; margin:6px 0 9px; text-transform:uppercase } .nav-button { background:transparent; color:var(--muted); text-align:left; border-radius:10px; display:flex; align-items:center; gap:12px; width:100%; min-height:43px; padding:10px 12px; font-weight:600 } .nav-button:hover,.nav-button[aria-current="page"] { background:var(--accent-soft); color:var(--accent-strong) } .nav-icon { display:inline-grid; place-items:center; width:22px; font-size:17px; line-height:1 } .side-note { margin:auto 8px 0; padding:15px 12px; background:var(--surface-soft); border:1px solid var(--line); border-radius:12px; font-size:12px; color:var(--muted) }
+    main { min-width:0; padding:34px clamp(22px,3vw,48px) 60px; max-width:1680px; width:100%; margin:0 auto } .eyebrow { color:var(--accent); font-size:11px; text-transform:uppercase; font-weight:750; letter-spacing:.1em; margin-bottom:9px } .top { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:28px } .top p { margin:0 } .top-actions { display:flex; gap:10px; align-items:center } .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px } .card,form,.detail,.panel-card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:22px; box-shadow:var(--shadow) } .detail { background:transparent; border:0; box-shadow:none; padding:0; margin-bottom:20px } .detail > h2,.detail > .project-meta { display:none } .project-card { display:flex; flex-direction:column; align-items:flex-start; gap:8px; min-height:190px } .project-card p { margin:0 0 10px; font-size:13px } .project-card button { margin-top:auto } .project-icon { display:grid; place-items:center; width:42px; height:42px; border-radius:12px; background:var(--accent-soft); color:var(--accent); font-size:18px; font-weight:750 } .empty-state { padding:45px 24px; background:var(--surface); border:1px dashed var(--line); border-radius:16px; text-align:center; grid-column:1/-1 }
+    .overview-hero { background:var(--hero); color:var(--hero-text); border-radius:18px; padding:30px; min-height:180px; display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:18px } .overview-hero p { color:var(--hero-text); opacity:.8; max-width:560px; margin-bottom:0 } .hero-symbol { display:grid; place-items:center; width:92px; height:92px; flex:none; border-radius:28px; background:#ffffff75; color:#6557d9; font-size:38px; font-weight:750 } .overview-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px } .overview-card { display:flex; flex-direction:column; align-items:flex-start; min-height:185px } .overview-card p { flex:1 } .overview-icon { display:grid; place-items:center; width:38px; height:38px; background:var(--accent-soft); color:var(--accent); border-radius:11px; margin-bottom:18px; font-size:18px } .overview-card button { padding-left:0; background:transparent; color:var(--accent); border:0 }
+    .step { background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:26px; margin-bottom:16px } .step-number { display:inline-block; border-radius:99px; background:var(--accent-soft); color:var(--accent-strong); padding:4px 10px; font-size:11px; font-weight:750; margin-bottom:12px; letter-spacing:.04em } .step p { margin:8px 0 15px } details { margin-top:12px; border:1px solid var(--line); border-radius:12px; padding:13px 16px; background:var(--surface) } summary { cursor:pointer; color:var(--text); font-weight:650 } details[open] > summary { margin-bottom:14px } .guide-note { color:var(--text) } .actions { margin:16px 0 } .project-meta,.path { overflow-wrap:anywhere } .step .operation-status { margin:10px 0 } .step form { box-shadow:none; margin:12px 0 }
+    button { border:1px solid transparent; border-radius:999px; background:var(--accent); color:#fff; padding:10px 18px; font-weight:700; cursor:pointer } :root[data-theme="dark"] button:not(.secondary):not(.nav-button):not(.overview-link) { color:#102c29 } button:hover { filter:brightness(.96) } button.secondary,.theme-toggle { background:var(--surface); color:var(--accent-strong); border-color:var(--line) } button:disabled { opacity:.55; cursor:wait } button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid #66c9bb; outline-offset:3px }
+    input,select,textarea { display:block; width:100%; margin:7px 0 16px; padding:11px 13px; border:1px solid #b6d8d3; border-radius:9px; background:var(--surface); color:var(--text) } input::placeholder,textarea::placeholder { color:var(--muted) } label { font-weight:650; font-size:13px } .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center } #message { color:var(--danger); margin:0 0 12px } #message:empty { display:none } .muted { color:var(--muted) } pre { white-space:pre-wrap; overflow-wrap:anywhere; padding:14px; border-radius:9px; background:var(--code); max-height:460px; overflow:auto; color:var(--text) } .operation-status { color:var(--accent-strong); min-height:20px } .operation-status[data-state="failed"] { color:var(--danger) } #control-help { position:fixed; z-index:20; bottom:16px; right:16px; max-width:min(380px,calc(100vw - 32px)); padding:10px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--text); box-shadow:0 8px 28px #0002 }
+    .drawer-backdrop { position:fixed; inset:0; z-index:15; background:#10252399; display:flex; justify-content:flex-end } .drawer { width:min(560px,100%); height:100%; background:var(--surface); padding:30px; overflow:auto; box-shadow:-12px 0 35px #0002 } .drawer form { border:0; box-shadow:none; padding:0; margin-top:24px } .drawer-head { display:flex; align-items:center; justify-content:space-between; gap:20px; border-bottom:1px solid var(--line); padding-bottom:18px } .drawer-head h2 { margin:0 } .drawer-close { border-radius:10px; padding:6px 11px }
+    .ticket-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin:24px 0 12px } .ticket-toolbar h2 { margin:0 } .table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; margin:12px 0 24px } .ticket-table { width:100%; border-collapse:collapse; min-width:560px; text-align:left } .ticket-table th { background:var(--accent-soft); color:var(--accent-strong); font-size:12px; font-weight:700; padding:12px 16px } .ticket-table td { border-top:1px solid var(--line); padding:15px 16px; vertical-align:top } .ticket-table tbody tr:first-child td { border-top:0 } .ticket-table td:first-child { font-weight:650 } .ticket-table .ticket-details-cell { background:var(--surface-soft); font-weight:400; padding:20px } .status-badge { display:inline-block; border-radius:99px; background:var(--accent-soft); color:var(--accent-strong); padding:4px 10px; font-size:12px; font-weight:650 } textarea { min-height:130px; resize:vertical }
+    .row-actions { padding:0; margin:0; border:0; background:transparent; min-width:155px } .row-actions summary { display:inline-block; color:var(--accent-strong); border:1px solid var(--line); border-radius:999px; padding:8px 14px; list-style:none; font-size:13px } .row-actions summary::-webkit-details-marker { display:none } .row-actions[open] > summary { margin-bottom:7px } .action-list { display:flex; flex-direction:column; gap:2px; padding:4px; border:1px solid var(--line); border-radius:10px; background:var(--surface); box-shadow:var(--shadow) } .action-list button { border:0; border-radius:7px; background:transparent; color:var(--text); text-align:left; font-weight:500; padding:8px 10px } .action-list button:hover { background:var(--accent-soft) } :root[data-theme="dark"] .action-list button:not(.secondary) { color:var(--text) }
+    .knowledge-browser { margin:28px 0; border-top:1px solid var(--line); padding-top:24px } .knowledge-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin:16px 0 } .finding-card { box-shadow:none; padding:18px; min-width:0 } .finding-card p { color:var(--text); overflow-wrap:anywhere } .finding-meta { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:10px } .finding-card .evidence-link { display:block; text-align:left; max-width:100%; overflow-wrap:anywhere; margin:7px 0 } .source-excerpt { max-height:420px; overflow:auto; white-space:pre; font:12px/1.6 ui-monospace,Consolas,monospace } .context-list { margin:10px 0; padding-left:20px; overflow-wrap:anywhere } .context-list li { margin:7px 0 } .context-preview { border:1px solid var(--line); border-radius:10px; padding:16px; margin:14px 0 }
+    @media(max-width:800px) { .layout { grid-template-columns:68px minmax(0,1fr) } .sidebar { padding:20px 8px } .nav-caption,.nav-label,.side-note,.header-context,.header-divider { display:none } .nav-button { justify-content:center; padding:10px } .overview-grid { grid-template-columns:1fr } .app-header { padding:0 16px } main { padding:25px 17px 50px } .hero-symbol { display:none } }
+    @media(max-width:480px) { .local-badge { display:none } .top { align-items:flex-start; flex-direction:column } .top-actions { width:100% } .drawer { padding:22px } .step { padding:20px } }
+  </style>
+</head>
+<body>
+<header class="app-header"><div class="brand-mark" aria-hidden="true">A</div><div class="brand-title">Agent Pipeline</div><div class="header-divider"></div><span class="header-context">Your local workspace</span><div class="header-spacer"></div><span class="local-badge">Local workspace</span><button id="theme-toggle" class="secondary theme-toggle" type="button" aria-label="Switch color theme">◐ &nbsp; Dark</button></header>
+<div class="layout"><nav class="sidebar" aria-label="Workspace navigation">
+  <div class="nav-caption">Workspace</div>
+  <button class="nav-button" type="button" data-view="projects" aria-current="page"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">Projects</span></button>
+  <button class="nav-button" type="button" data-view="overview"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Overview</span></button>
+  <button class="nav-button" type="button" data-view="brain"><span class="nav-icon" aria-hidden="true">✧</span><span class="nav-label">Project Brain</span></button>
+  <button class="nav-button" type="button" data-view="tickets"><span class="nav-icon" aria-hidden="true">☷</span><span class="nav-label">Tickets &amp; runs</span></button>
+  <button class="nav-button" type="button" data-view="settings"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Settings</span></button>
+  <div class="side-note"><strong>Made for your projects</strong><br>Everything stays in your local workspace.</div>
+</nav><main>
+  <div class="top"><div><div class="eyebrow" id="page-eyebrow">Your workspace</div><h1 id="page-title">Projects</h1><p id="page-description">Pick up where you left off, or connect a new project.</p></div><div class="top-actions"><button id="show-add" type="button">＋ &nbsp; Add project</button></div></div>
+  <p id="message" role="status" aria-live="polite"></p>
+  <section id="detail" class="detail" hidden></section>
+  <section id="project-list"><div class="eyebrow">All projects</div><section id="projects" class="grid" aria-label="Registered projects"></section></section>
+</main></div>
+<div id="add-drawer" class="drawer-backdrop" hidden><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title"><div class="drawer-head"><h2 id="drawer-title">Add a project</h2><button id="cancel-add" class="secondary drawer-close" type="button" aria-label="Close add project">✕</button></div><form id="add-form"><p>Connect an existing folder to get started. Your project files won’t be changed.</p><label for="directory">Project folder path</label><input id="directory" required placeholder="D:\Projects\MyProject"><label for="name">Display name <span class="muted">(optional)</span></label><input id="name" maxlength="120" placeholder="e.g. My application"><p id="drawer-message" class="operation-status" role="status"></p><div class="row"><button type="submit">Add project</button></div></form></aside></div>
+<div id="action-drawer" class="drawer-backdrop" hidden><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="action-drawer-title"><div class="drawer-head"><h2 id="action-drawer-title"></h2><button id="action-drawer-close" class="secondary drawer-close" type="button" aria-label="Close panel">✕</button></div><div id="action-drawer-content"></div></aside></div>
+<div id="control-help" role="tooltip" hidden></div>
+<script>
+const token = '__WORKSPACE_TOKEN__';
+const projects = document.querySelector('#projects'), detail = document.querySelector('#detail'), message = document.querySelector('#message'), form = document.querySelector('#add-form'), drawer = document.querySelector('#add-drawer');
+let selectedProject = null, activeView = 'projects';
+async function api(url, options = {}) {
+  const response = await fetch(url, { ...options, headers: { ...(options.method ? { 'Content-Type':'application/json', 'X-Workspace-Token':token } : {}) } });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+function element(tag, text, className) { const node = document.createElement(tag); node.textContent = text; if (className) node.className = className; return node; }
+function disclosure(title, content) { const node = document.createElement('details'); node.append(element('summary', title), content); return node; }
+function describeResult(data) {
+  if (Array.isArray(data?.runs)) return data.runs.length ? `Found ${data.runs.length} analysis run(s): ${data.runs.join(', ')}.` : 'No analysis runs yet. Prepare your project to get started.';
+  if (data?.counts) return `Evidence checked: ${data.counts.current ?? 0} current, ${data.counts.stale ?? 0} stale, ${data.counts.unchecked ?? 0} unchecked.`;
+  if (Array.isArray(data?.completed) && data?.status) return data.status === 'complete' ? 'All analysis stages are complete. Review the findings before using them.' : `Analysis: ${data.completed.length} of 8 stages complete${data.nextStage ? `; next is stage ${data.nextStage}` : ''}.`;
+  if (Array.isArray(data?.tickets)) return data.tickets.length ? `Found ${data.tickets.length} ticket(s). Open details below to inspect them.` : 'No tickets were found.';
+  if (data?.status === 'running') return 'Started. Follow the live status below.';
+  if (data?.ok) return 'Done.';
+  return 'Done. Open details below to inspect the result.';
+}
+const helpText = {
+  'List tickets': 'Show tickets from the configured tracker.',
+  'View ticket': 'Show the entered ticket, its plan, comments, failures, and saved context.',
+  'Create file ticket': 'Create a new ticket in the local file tracker using the entered ID, title, and description.',
+  'Add comment': 'Post the entered comment to the selected ticket in its tracker.',
+  'Set status': 'Change the selected ticket to the entered status key.',
+  'Pipeline status': 'Show the current pipeline state and recent activity.',
+  'Plan tick': 'Start a planning tick. The pipeline may select any eligible ticket, not necessarily the entered ID.',
+  'Code tick': 'Start a coding tick. The pipeline may select any eligible ticket and can run agents and QA.',
+  'Pause': 'Prevent new pipeline ticks from starting; work already running may continue.',
+  'Unpause': 'Allow new pipeline ticks to start.',
+  'List runs': 'List the analysis runs already created for this project.',
+  'Start analysis': 'Prepare a named analysis run and its prompts for the selected scope; this does not invoke an agent.',
+  'Status': 'Check the selected run and show its next analysis stage.',
+  'Check freshness': 'Compare accepted findings with current source files and show current, stale, and unchecked evidence.',
+  'Accept next submission': 'Validate and accept the next submission written by an external agent.',
+  'Run with configured agent': 'Start the configured agent to analyze remaining stages; provider charges may apply.',
+  'Decisions and conflicts': 'Show recorded developer decisions and conflicts.',
+  'Lessons': 'Show recorded lessons and their review information.',
+  'View prompt': 'Show the next prompt for an external coding agent.',
+  'View submission': 'Show the current submission before accepting it.',
+  'View summary': 'Show the completed analysis summary when available.',
+};
+function attachHelp(node, text) {
+  const tooltip = document.querySelector('#control-help');
+  node.setAttribute('aria-describedby', 'control-help');
+  const show = () => { tooltip.textContent = text; tooltip.hidden = false; };
+  const hide = () => { tooltip.hidden = true; };
+  node.addEventListener('mouseenter', show); node.addEventListener('mouseleave', hide);
+  node.addEventListener('focus', show); node.addEventListener('blur', hide);
+}
+const actionDrawer = document.querySelector('#action-drawer');
+let actionDrawerTrigger = null;
+function openActionDrawer(title, content, trigger) {
+  actionDrawerTrigger = trigger;
+  document.querySelector('#action-drawer-title').textContent = title;
+  document.querySelector('#action-drawer-content').replaceChildren(content);
+  actionDrawer.hidden = false;
+  (content.querySelector('input, select, textarea, button') || document.querySelector('#action-drawer-close')).focus();
+}
+function closeActionDrawer() {
+  actionDrawer.hidden = true; document.querySelector('#control-help').hidden = true;
+  if (actionDrawerTrigger?.isConnected) actionDrawerTrigger.focus();
+}
+attachHelp(document.querySelector('#action-drawer-close'), 'Close this panel without making further changes.');
+document.querySelector('#action-drawer-close').addEventListener('click', closeActionDrawer);
+actionDrawer.addEventListener('click', (event) => { if (event.target === actionDrawer) closeActionDrawer(); });
+const viewInfo = {
+  projects: ['Your workspace', 'Projects', 'Pick up where you left off, or connect a new project.'],
+  overview: ['Project workspace', 'Overview', 'Everything you need to move your project forward.'],
+  brain: ['Project workspace', 'Project Brain', 'Help your agent understand the project and keep knowledge current.'],
+  tickets: ['Project workspace', 'Tickets & runs', 'Describe a change, review the plan, and follow the work.'],
+  settings: ['Project workspace', 'Project settings', 'Set up your agent, tracker, and pipeline for this project.'],
+};
+function setView(view) {
+  if (!viewInfo[view]) return;
+  if (view !== 'projects' && !selectedProject) { message.textContent = 'Open a project first to use this section.'; return; }
+  activeView = view; message.textContent = '';
+  document.querySelector('#page-eyebrow').textContent = view === 'projects' ? viewInfo[view][0] : selectedProject.name;
+  document.querySelector('#page-title').textContent = viewInfo[view][1];
+  document.querySelector('#page-description').textContent = viewInfo[view][2];
+  document.querySelector('#project-list').hidden = view !== 'projects';
+  detail.hidden = view === 'projects';
+  document.querySelector('#show-add').hidden = view !== 'projects';
+  for (const panel of detail.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== view;
+  for (const button of document.querySelectorAll('[data-view]')) {
+    if (button.dataset.view === view) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+  }
+}
+function applyTheme(theme) {
+  const next = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  const toggle = document.querySelector('#theme-toggle');
+  toggle.textContent = next === 'dark' ? '☀  Light' : '◐  Dark';
+  toggle.setAttribute('aria-label', `Switch to ${next === 'dark' ? 'light' : 'dark'} mode`);
+  try { localStorage.setItem('agent-pipeline-theme', next); } catch { /* Storage may be unavailable. */ }
+}
+let savedTheme = null;
+try { savedTheme = localStorage.getItem('agent-pipeline-theme'); } catch { /* Use light mode. */ }
+applyTheme(savedTheme);
+attachHelp(document.querySelector('#theme-toggle'), 'Switch between light and dark mode. Your choice is saved in this browser.');
+document.querySelector('#theme-toggle').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+for (const nav of document.querySelectorAll('[data-view]')) {
+  nav.setAttribute('aria-label', nav.textContent.trim());
+  attachHelp(nav, viewInfo[nav.dataset.view][2]);
+  nav.addEventListener('click', () => setView(nav.dataset.view));
+}
+function showStatus(node, text, state = '') { node.textContent = text; node.dataset.state = state; }
+function jobWatcher(section, status, output, url, kind) {
+  let timer = null, generation = 0, showResult = false;
+  async function check(current) {
+    if (!section.isConnected || current !== generation) return;
+    try {
+      const data = await api(url);
+      if (!section.isConnected || current !== generation) return;
+      const job = data.job;
+      if (!job) { showStatus(status, `No ${kind} job is running.`); timer = setTimeout(() => check(current), 5000); return; }
+      if (job.status === 'running') {
+        showStatus(status, `${kind} running${job.name ? `: ${job.name}` : job.action ? `: ${job.action}` : ''}. Checking for updates…`, 'running');
+        timer = setTimeout(() => check(current), 2000);
+      } else if (job.status === 'failed') {
+        showStatus(status, `${kind} failed: ${job.error || 'Unknown error'}`, 'failed');
+        if (showResult) { output.textContent = JSON.stringify(job, null, 2); showResult = false; }
+        timer = setTimeout(() => check(current), 5000);
+      } else {
+        showStatus(status, `${kind} finished${job.result?.status ? `: ${job.result.status}` : ''}.`);
+        if (showResult) { output.textContent = JSON.stringify(job, null, 2); showResult = false; }
+        timer = setTimeout(() => check(current), 5000);
+      }
+    } catch (error) {
+      if (!section.isConnected || current !== generation) return;
+      showStatus(status, `Cannot check ${kind.toLowerCase()} status: ${error.message}. Retrying…`, 'failed');
+      timer = setTimeout(() => check(current), 5000);
+    }
+  }
+  return (includeResult = false) => { clearTimeout(timer); showResult = includeResult; const current = ++generation; check(current); };
+}
+async function refresh() {
+  projects.replaceChildren(element('p', 'Loading projects…'));
+  try {
+    const data = await api('/api/projects');
+    projects.replaceChildren();
+    if (!data.projects.length) { projects.append(element('p', 'No projects yet. Add a local project folder to get started.', 'empty-state')); return; }
+    for (const project of data.projects) {
+      const card = element('article', '', 'card project-card'); card.append(element('div', project.name.slice(0, 1).toUpperCase() || 'P', 'project-icon'), element('h2', project.name), element('p', project.path, 'path'));
+      const open = element('button', 'Open workspace', 'secondary'); attachHelp(open, 'Open this project’s workspace and available controls.'); open.addEventListener('click', () => openProject(project.id)); card.append(open); projects.append(card);
+    }
+  } catch (error) { projects.replaceChildren(); message.textContent = error.message; }
+}
+async function openProject(id) {
+  message.textContent = ''; detail.hidden = false; detail.replaceChildren(element('p', 'Loading…'));
+  try {
+    const data = await api('/api/projects/' + id); selectedProject = data.project; const openingView = activeView === 'projects' ? 'overview' : activeView; detail.replaceChildren(element('h2', data.project.name), element('p', data.project.path, 'project-meta'));
+    const overview = element('section', ''); overview.dataset.panel = 'overview';
+    const hero = element('div', '', 'overview-hero'); const heroText = element('div', ''); heroText.append(element('div', 'YOUR PROJECT WORKSPACE', 'eyebrow'), element('h1', `Welcome to ${data.project.name}`), element('p', 'Understand your code, plan meaningful changes, and keep track of your work—all in one place.')); hero.append(heroText, element('div', '✳', 'hero-symbol')); overview.append(hero);
+    const cards = element('div', '', 'overview-grid');
+    const overviewCard = (icon, title, text, label, target) => { const card = element('article', '', 'panel-card overview-card'); card.append(element('div', icon, 'overview-icon'), element('h2', title), element('p', text)); const button = element('button', `${label} →`, 'overview-link'); button.type = 'button'; attachHelp(button, `Open ${title.toLowerCase()} for this project.`); button.addEventListener('click', () => setView(target)); card.append(button); cards.append(card); };
+    overviewCard('⚙', 'Project setup', data.configured ? `Using ${data.config.agent} with the ${data.config.tracker} tracker.` : 'Choose your coding agent, tracker, and project checks to get ready.', data.configured ? 'View settings' : 'Complete setup', 'settings');
+    overviewCard('✧', 'Project Brain', 'Build a shared understanding of your code and review project knowledge.', 'Explore knowledge', 'brain');
+    overviewCard('☷', 'Tickets & runs', data.configured ? 'Describe a change and follow it from planning through verification.' : 'Set up your project first to create and run tickets.', 'View tickets', 'tickets');
+    overview.append(cards); detail.append(overview);
+    const connected = element('section', '', 'step'); connected.append(element('span', 'STEP 1', 'step-number'), element('h2', 'Your project is connected'), element('p', 'Your folder has been added. Your project files were not changed by connecting it.'));
+    connected.dataset.panel = 'settings';
+    connected.append(element('p', data.configured ? `Pipeline configured · AI: ${data.config.agent} · Tracker: ${data.config.tracker}` : `Ticket automation needs setup: ${data.issue} Project understanding can still be prepared without it.`, 'guide-note'));
+    if (!data.configured && data.issue === 'No pipeline.config.json found.') {
+      const setup = document.createElement('form'); setup.append(element('h2', 'Set up ticket automation'), element('p', 'Choose your coding agent, tracker, version control, and the command that verifies your project. Existing files are kept.'));
+      const selectField = (label, options, tip) => { const wrapper = element('label', label); const select = document.createElement('select'); for (const [value, title] of options) { const option = element('option', title); option.value = value; select.append(option); } attachHelp(select, tip); wrapper.append(select); setup.append(wrapper); return select; };
+      const agent = selectField('Coding agent', [['codex','Codex'],['claude','Claude Code'],['cursor','Cursor'],['custom','Custom CLI']], 'The selected agent must be installed and signed in on this computer.');
+      const customFields = element('div', ''); customFields.hidden = true;
+      const customLabel = element('label', 'Custom agent executable'); const customCommand = document.createElement('input'); attachHelp(customCommand, 'Enter the executable path or command name, without credentials.'); customLabel.append(customCommand);
+      const argsLabel = element('label', 'Arguments (JSON array)'); const customArgs = document.createElement('input'); customArgs.value = '[]'; attachHelp(customArgs, 'Enter a JSON array of arguments. Use {promptPointer} for pointer-mode agents.'); argsLabel.append(customArgs);
+      const modeLabel = element('label', 'How the agent receives the prompt'); const promptMode = document.createElement('select'); for (const [value, title] of [['stdin','Standard input'],['pointer','Prompt pointer argument']]) { const option = element('option', title); option.value = value; promptMode.append(option); } attachHelp(promptMode, 'Choose standard input or configure an argument containing {promptPointer}.'); modeLabel.append(promptMode); customFields.append(customLabel, argsLabel, modeLabel); setup.append(customFields);
+      agent.addEventListener('change', () => { customFields.hidden = agent.value !== 'custom'; customCommand.required = agent.value === 'custom'; });
+      const tracker = selectField('Ticket tracker', [['file','Local tickets'],['clickup','ClickUp']], 'Choose a local ticket file or an existing ClickUp list.');
+      const listLabel = element('label', 'ClickUp list ID'); const listId = document.createElement('input'); attachHelp(listId, 'The ID of the ClickUp list. Set the CLICKUP_API_TOKEN environment variable separately.'); listLabel.append(listId); listLabel.hidden = true; setup.append(listLabel);
+      tracker.addEventListener('change', () => { listLabel.hidden = tracker.value !== 'clickup'; listId.required = tracker.value === 'clickup'; });
+      const vcs = selectField('Version control', [['none','Manual / no check-in'],['git','Git']], 'Git uses the existing repository; automatic push is disabled in this setup.');
+      const qaLabel = element('label', 'QA command'); const qa = document.createElement('input'); qa.required = true; qa.placeholder = 'For example: npm test'; attachHelp(qa, 'Enter the real command that checks this project. It runs during ticket work. Do not include credentials.'); qaLabel.append(qa); setup.append(qaLabel);
+      setup.append(element('p', 'The QA command will run during ticket work. Use a real project check; do not put passwords or tokens in it. Git push is off by default. Creating setup files can make an existing Brain snapshot stale.', 'guide-note'));
+      const setupStatus = element('p', '', 'operation-status'); setupStatus.setAttribute('role', 'status'); const save = element('button', 'Save setup'); save.type = 'submit'; attachHelp(save, 'Create missing setup files and an empty local ticket list. Existing files are not overwritten.'); setup.append(save, setupStatus);
+      setup.addEventListener('submit', async (event) => { event.preventDefault(); save.disabled = true; showStatus(setupStatus, 'Saving project setup…', 'running');
+        try { const args = agent.value === 'custom' ? JSON.parse(customArgs.value) : []; const result = await api(`/api/projects/${id}/setup`, { method:'POST', body:JSON.stringify({ provider:agent.value, customCommand:customCommand.value, customArgs:args, promptMode:promptMode.value, tracker:tracker.value, listId:listId.value, vcs:vcs.value, qaCommand:qa.value }) }); await openProject(id); message.textContent = `Setup saved. Created ${result.created.length} files; kept ${result.kept.length} existing files. Check your agent and QA command before running work.`; }
+        catch (error) { showStatus(setupStatus, `Setup failed: ${error.message}`, 'failed'); }
+        finally { save.disabled = false; }
+      }); connected.append(disclosure('Set up this project', setup));
+    } else if (!data.configured) connected.append(element('p', 'The existing configuration needs attention. This setup form will not overwrite it.', 'muted'));
+    else {
+      const checks = element('p', '', 'operation-status'); checks.setAttribute('role', 'status');
+      const checkButton = element('button', 'Check setup', 'secondary'); attachHelp(checkButton, 'Check whether the selected agent command, tracker configuration, and job files are present.');
+      checkButton.addEventListener('click', async () => { checkButton.disabled = true; showStatus(checks, 'Checking setup…', 'running');
+        try { const result = await api(`/api/projects/${id}/setup`); const agents = result.agents.map((a) => `${a.name}: ${a.available ? 'command found' : 'command not found'}`).join('; '); showStatus(checks, `${agents}. Tracker: ${result.tracker.ready ? 'configured' : 'needs attention'}. Job files: ${result.jobsReady ? 'found' : 'missing'}. ${result.note}`); }
+        catch (error) { showStatus(checks, `Setup check failed: ${error.message}`, 'failed'); }
+        finally { checkButton.disabled = false; }
+      }); connected.append(checkButton, checks);
+      const settingsForm = document.createElement('form'); settingsForm.append(element('h2', 'Choose your AI agents'), element('p', 'Use the same agent for everything or choose different agents for planning and project analysis. Saving changes updates the project configuration and can make an existing analysis snapshot stale.'));
+      const makeAgent = (label, inherit) => { const wrapper = element('label', label); const select = document.createElement('select');
+        for (const [value, title] of [...(inherit ? [['','Same as coding agent']] : []), ['codex','Codex'], ['claude','Claude Code'], ['cursor','Cursor']]) { const option = element('option', title); option.value = value; select.append(option); }
+        attachHelp(select, 'Choose an installed agent. Existing custom agents are preserved unless you change them.'); wrapper.append(select); settingsForm.append(wrapper); return select; };
+      const codingAgent = makeAgent('Coding agent', false), planAgent = makeAgent('Planning agent', true), brainAgent = makeAgent('Project analysis agent', true);
+      const agentStatus = element('p', 'Loading agent settings…', 'operation-status'); agentStatus.setAttribute('role', 'status');
+      const saveAgent = element('button', 'Save agent choices'); saveAgent.type = 'submit'; saveAgent.disabled = true; attachHelp(saveAgent, 'Save these agent selections without changing other project settings.'); settingsForm.append(saveAgent, agentStatus);
+      let agentVersion = '';
+      function pick(select, value) { if (value && ![...select.options].some((option) => option.value === value)) { const option = element('option', `${value} (existing custom agent)`); option.value = value; select.append(option); } select.value = value; }
+      async function loadAgents() { try { const value = await api(`/api/projects/${id}/agents`); agentVersion = value.version; for (const name of value.configured) { for (const select of [codingAgent, planAgent, brainAgent]) if (![...select.options].some((option) => option.value === name)) { const option = element('option', `${name} (configured agent)`); option.value = name; select.append(option); } } pick(codingAgent, value.code); pick(planAgent, value.plan); pick(brainAgent, value.brain); saveAgent.disabled = false; showStatus(agentStatus, 'Agent settings loaded.'); } catch (error) { showStatus(agentStatus, `Could not load agent settings: ${error.message}`, 'failed'); } }
+      settingsForm.addEventListener('submit', async (event) => { event.preventDefault(); saveAgent.disabled = true; showStatus(agentStatus, 'Saving agent choices…', 'running');
+        try { await api(`/api/projects/${id}/agents`, { method:'POST', body:JSON.stringify({ version:agentVersion, code:codingAgent.value, plan:planAgent.value, brain:brainAgent.value }) }); await loadAgents(); showStatus(agentStatus, 'Agent choices saved. Check setup before running work.'); }
+        catch (error) { showStatus(agentStatus, `Could not save: ${error.message}`, 'failed'); saveAgent.disabled = false; }
+      }); connected.append(disclosure('Change AI agents', settingsForm)); loadAgents();
+      const pipelineForm = document.createElement('form'); pipelineForm.append(element('h2', 'Pipeline settings'), element('p', 'Review your tracker, QA, version control, and commands. Commands run on your computer and may affect external services. Do not enter secrets here.'));
+      const settingFields = [
+        ['tracker','type','Tracker type','choice',['file','clickup']], ['tracker','file','Local ticket file','text'], ['tracker','listId','ClickUp list ID','text'], ['tracker','tokenEnv','ClickUp token environment variable','text'],
+        ['vcs','type','Version control','choice',['none','git','command']], ['vcs','baseBranch','Git base branch','text'], ['vcs','push','Allow Git push','boolean'], ['vcs','prepare','Custom VCS prepare command','text'], ['vcs','checkinCommand','Custom VCS check-in command','text'],
+        ['qa','command','QA command','text'], ['gates','build','Build command (optional)','text'], ['gates','unitTests','Unit test command (optional)','text'], ['deploy','command','Deploy command (optional)','text'], ['deploy','smokeCommand','Smoke test command (optional)','text'], ['knowledge','maxPromptContextTokens','Retrieved context budget (estimated tokens)','number'],
+      ];
+      const settingInputs = {}; for (const [section, key, title, kind, options] of settingFields) {
+        const label = element('label', title); const field = document.createElement(kind === 'choice' || kind === 'boolean' ? 'select' : 'input');
+        if (kind === 'choice' || kind === 'boolean') for (const value of kind === 'boolean' ? ['false','true'] : options) { const option = element('option', kind === 'boolean' ? (value === 'true' ? 'Yes' : 'No') : value); option.value = value; field.append(option); }
+        else if (kind === 'number') { field.type = 'number'; field.min = '1'; field.step = '1'; }
+        attachHelp(field, `${title}. Saving changes updates this project's configuration.`); label.append(field); pipelineForm.append(label); settingInputs[`${section}.${key}`] = { field, kind, protected: false };
+      }
+      const settingsStatus = element('p', 'Loading settings…', 'operation-status'); settingsStatus.setAttribute('role', 'status');
+      const saveSettings = element('button', 'Save pipeline settings'); saveSettings.type = 'submit'; saveSettings.disabled = true; attachHelp(saveSettings, 'Validate and save the displayed settings while preserving unrelated configuration.'); pipelineForm.append(saveSettings, settingsStatus);
+      let settingsVersion = '';
+      async function loadSettings() { try { const result = await api(`/api/projects/${id}/settings`); settingsVersion = result.version; for (const [section, key] of settingFields) { const entry = settingInputs[`${section}.${key}`]; const value = result.values[section][key]; entry.protected = value === null; entry.field.disabled = entry.protected; entry.field.value = entry.protected ? '' : String(value); if (entry.protected) entry.field.placeholder = 'Protected value retained'; } saveSettings.disabled = false; showStatus(settingsStatus, 'Settings loaded. Protected values remain unchanged.'); } catch (error) { showStatus(settingsStatus, `Could not load settings: ${error.message}`, 'failed'); } }
+      pipelineForm.addEventListener('submit', async (event) => { event.preventDefault(); saveSettings.disabled = true; showStatus(settingsStatus, 'Saving settings…', 'running');
+        try { const values = {}; for (const [section, key] of settingFields) { const entry = settingInputs[`${section}.${key}`]; values[section] ??= {}; values[section][key] = entry.protected ? null : entry.kind === 'boolean' ? entry.field.value === 'true' : entry.kind === 'number' ? Number(entry.field.value) : entry.field.value; } await api(`/api/projects/${id}/settings`, { method:'POST', body:JSON.stringify({ version:settingsVersion, values }) }); await loadSettings(); showStatus(settingsStatus, 'Pipeline settings saved. Check setup before running work.'); }
+        catch (error) { showStatus(settingsStatus, `Could not save settings: ${error.message}`, 'failed'); saveSettings.disabled = false; }
+      }); connected.append(disclosure('Edit pipeline settings', pipelineForm)); loadSettings();
+    }
+    detail.append(connected);
+    const brain = element('section', '', 'step'); brain.dataset.panel = 'brain'; brain.append(element('span', 'PROJECT KNOWLEDGE', 'step-number'), element('h2', 'Help AI understand your project'), element('p', 'First prepare a project analysis. Then run it with your configured AI agent, or use your own agent from the advanced options.'), element('p', 'Preparing creates analysis files. Running with AI invokes the configured provider, which may receive project content and charge for usage.', 'guide-note'));
+    detail.append(brain);
+    if (data.configured) {
+      const ticketSection = element('section', '', 'step'); ticketSection.dataset.panel = 'tickets'; ticketSection.append(element('span', 'TICKET WORKFLOW', 'step-number'), element('h2', 'Describe and deliver a change'));
+      ticketSection.append(element('p', 'A pipeline tick can select any eligible ticket in this project.'));
+      const ticketIdLabel = element('label', 'Ticket ID'); const ticketId = document.createElement('input'); ticketId.placeholder = 'Example: APP-12'; attachHelp(ticketId, 'Identify the ticket to create, inspect, comment on, or update.'); ticketIdLabel.append(ticketId); ticketSection.append(ticketIdLabel);
+      const ticketTitleLabel = element('label', 'New ticket title'); const ticketTitle = document.createElement('input'); attachHelp(ticketTitle, 'Enter a title when creating a local file-tracker ticket.'); ticketTitleLabel.append(ticketTitle); ticketSection.append(ticketTitleLabel);
+      const ticketDescriptionLabel = element('label', 'Description or comment'); const ticketDescription = document.createElement('input'); attachHelp(ticketDescription, 'Enter the new ticket description or the comment to post.'); ticketDescriptionLabel.append(ticketDescription); ticketSection.append(ticketDescriptionLabel);
+      const statusLabel = element('label', 'Status key'); const status = document.createElement('input'); status.placeholder = 'ready, resume, blocked…'; attachHelp(status, 'Enter a configured status key such as ready, resume, or blocked.'); statusLabel.append(status); ticketSection.append(statusLabel);
+      const ticketControls = element('div', '', 'row'); const ticketOutput = element('pre', 'Select an action to inspect tickets or pipeline activity.');
+      const pipelineStatus = element('p', 'Checking pipeline status…', 'operation-status'); pipelineStatus.setAttribute('role', 'status');
+      const ticketActionStatus = element('p', '', 'operation-status'); ticketActionStatus.setAttribute('role', 'status');
+      const watchPipeline = jobWatcher(ticketSection, pipelineStatus, ticketOutput, `/api/projects/${id}/pipeline`, 'Pipeline');
+      const ticketAction = (title, method, route, payload) => { const button = element('button', title, 'secondary'); button.type = 'button'; attachHelp(button, helpText[title]); button.addEventListener('click', async () => {
+        button.disabled = true; showStatus(ticketActionStatus, `${title} in progress…`, 'running'); ticketOutput.textContent = `${title} in progress…`;
+        try { const ticket = encodeURIComponent(ticketId.value.trim()); const target = route.replace(':id', ticket); const result = await api(`/api/projects/${id}/${target}`, method === 'POST' ? { method, body:JSON.stringify(payload()) } : {}); ticketOutput.textContent = JSON.stringify(result, null, 2); if (result.status === 'running') { showStatus(ticketActionStatus, `${title} started.`); watchPipeline(true); } else showStatus(ticketActionStatus, describeResult(result)); }
+        catch (error) { showStatus(ticketActionStatus, `${title} failed: ${error.message}`, 'failed'); ticketOutput.textContent = error.message; }
+        finally { button.disabled = false; }
+      }); ticketControls.append(button); return button; };
+      ticketAction('List tickets', 'GET', 'tickets');
+      ticketAction('View ticket', 'GET', 'tickets/:id');
+      ticketAction('Create file ticket', 'POST', 'tickets', () => ({ id:ticketId.value.trim(), title:ticketTitle.value, description:ticketDescription.value }));
+      ticketAction('Add comment', 'POST', 'tickets/:id/comment', () => ({ text:ticketDescription.value }));
+      ticketAction('Set status', 'POST', 'tickets/:id/status', () => ({ status:status.value.trim() }));
+      ticketAction('Pipeline status', 'GET', 'pipeline');
+      const planTick = ticketAction('Plan tick', 'POST', 'pipeline', () => ({ action:'plan' }));
+      const codeTick = ticketAction('Code tick', 'POST', 'pipeline', () => ({ action:'code' }));
+      ticketAction('Pause', 'POST', 'pipeline', () => ({ action:'pause' }));
+      ticketAction('Unpause', 'POST', 'pipeline', () => ({ action:'unpause' }));
+      const guided = element('div', ''); const ticketToolbar = element('div', '', 'ticket-toolbar'); ticketToolbar.append(element('h2', 'Your tickets'));
+      if (data.config.tracker === 'file') {
+        const create = document.createElement('form'); create.append(element('p', 'Explain what you want to change and how you will know it works.'));
+        const makeField = (labelText, tip, multiline = false) => { const label = element('label', labelText); const input = document.createElement(multiline ? 'textarea' : 'input'); input.required = true; attachHelp(input, tip); label.append(input); create.append(label); return input; };
+        const newId = makeField('Ticket ID', 'Use a unique ID with letters, numbers, hyphens, or underscores.');
+        const newTitle = makeField('What would you like to change?', 'Give the change a short, descriptive title.');
+        const newDescription = makeField('Details and acceptance criteria', 'Describe the expected behavior and how to check it.', true);
+        const createButton = element('button', 'Create ticket'); createButton.type = 'submit'; attachHelp(createButton, 'Create a new local ticket without running the agent.');
+        const createStatus = element('p', '', 'operation-status'); createStatus.setAttribute('role', 'status'); create.append(createButton, createStatus);
+        create.addEventListener('submit', async (event) => { event.preventDefault(); createButton.disabled = true; showStatus(createStatus, 'Creating ticket…', 'running');
+          try { const result = await api(`/api/projects/${id}/tickets`, { method:'POST', body:JSON.stringify({ id:newId.value.trim(), title:newTitle.value, description:newDescription.value }) }); create.reset(); closeActionDrawer(); await loadTickets(); showStatus(queueStatus, `Ticket ${result.id} created. Review the queue, then start planning.`); }
+          catch (error) { showStatus(createStatus, `Could not create ticket: ${error.message}`, 'failed'); }
+          finally { createButton.disabled = false; }
+        }); const addTicket = element('button', '＋  Add ticket'); addTicket.type = 'button'; attachHelp(addTicket, 'Open the form to create a local ticket.'); addTicket.addEventListener('click', () => { createStatus.textContent = ''; openActionDrawer('Add ticket', create, addTicket); }); ticketToolbar.append(addTicket);
+      } else guided.append(element('p', 'Create tickets in your connected tracker, then refresh the list here.'));
+      const queue = element('div', ''); const queueStatus = element('p', '', 'operation-status'); queueStatus.setAttribute('role', 'status');
+      const refreshTickets = element('button', 'Refresh tickets', 'secondary'); attachHelp(refreshTickets, 'Load current tickets from this project’s tracker.');
+      async function loadTickets() {
+        refreshTickets.disabled = true; showStatus(queueStatus, 'Loading tickets…', 'running');
+        try { const result = await api(`/api/projects/${id}/tickets`); queue.replaceChildren();
+          if (!result.tickets.length) queue.append(element('p', 'No tickets yet. Add a ticket when you’re ready.', 'empty-state'));
+          const tableWrap = element('div', '', 'table-wrap'); const table = element('table', '', 'ticket-table'); const head = element('thead', ''); const headRow = element('tr', '');
+          for (const title of ['Ticket', 'Title', 'Status', 'Actions']) headRow.append(element('th', title)); head.append(headRow); const tbody = element('tbody', ''); table.append(head, tbody); tableWrap.append(table);
+          for (const ticket of result.tickets) {
+            const row = element('tr', ''); const statusCell = element('td', ''); statusCell.append(element('span', ticket.status, 'status-badge')); const actionCell = element('td', ''); row.append(element('td', ticket.id), element('td', ticket.title), statusCell, actionCell);
+            const view = element('button', 'Review ticket', 'secondary'); attachHelp(view, 'See the ticket, its plan, and any questions or failures.');
+            async function applyTicketAction(actionId, expectedStatus, label, button) {
+              if (!confirm(`${label} for ${ticket.id}? This changes its status but does not start an agent.`)) return;
+              button.disabled = true; showStatus(queueStatus, `Updating ${ticket.id}…`, 'running');
+              try { await api(`/api/projects/${id}/tickets/${encodeURIComponent(ticket.id)}/action`, { method:'POST', body:JSON.stringify({ action:actionId, expectedStatus }) }); await loadTickets(); showStatus(queueStatus, `${ticket.id}: ${label}. No agent was started.`); }
+              catch (error) { showStatus(queueStatus, `Could not update ${ticket.id}: ${error.message}`, 'failed'); button.disabled = false; }
+            }
+            const detailRow = element('tr', ''); detailRow.hidden = true; const detailCell = element('td', '', 'ticket-details-cell'); detailCell.colSpan = 4; const ticketDetails = element('div', ''); detailCell.append(ticketDetails); detailRow.append(detailCell);
+            view.addEventListener('click', async () => { if (!detailRow.hidden) { detailRow.hidden = true; return; } detailRow.hidden = false; view.disabled = true; ticketDetails.replaceChildren(element('p', 'Loading ticket…'));
+              try { const item = await api(`/api/projects/${id}/tickets/${encodeURIComponent(ticket.id)}`); ticketDetails.replaceChildren(element('p', item.description || 'No description provided.'));
+                const plan = item.pendingPlan || item.plan;
+                if (plan?.summary) ticketDetails.append(element('p', `Plan: ${plan.summary}`));
+                if (plan?.decision) ticketDetails.append(element('p', `Decision: ${plan.decision}`));
+                if (plan?.question) ticketDetails.append(element('p', `Question: ${plan.question}`));
+                if (plan?.riskReason) ticketDetails.append(element('p', `Risk: ${plan.riskReason}`));
+                if (plan?.acceptance?.length) { const checks = element('ul', ''); for (const check of plan.acceptance) checks.append(element('li', `${check.id}: ${check.text}`)); ticketDetails.append(element('p', 'Acceptance checks:'), checks); }
+                for (const comment of item.comments || []) ticketDetails.append(element('p', `Comment: ${comment}`));
+                if (item.failure || item.planFailure) ticketDetails.append(element('p', `Needs attention: ${item.failure || item.planFailure}`));
+                if (item.statusKey === 'approval') { const approve = element('button', 'Approve plan'); attachHelp(approve, 'Move this reviewed ticket to ready for coding without starting a job.'); approve.addEventListener('click', () => applyTicketAction('approve', item.statusKey, 'Approve plan', approve)); ticketDetails.append(approve); }
+                if (item.statusKey === 'needInfo' || item.statusKey === 'approval') {
+                  const answerForm = document.createElement('form'); const answerLabel = element('label', 'Answer or feedback'); const answer = document.createElement('input'); answer.required = true; attachHelp(answer, 'Send the tracker a comment with your answer or requested changes.'); answerLabel.append(answer);
+                  const send = element('button', 'Send comment', 'secondary'); send.type = 'submit'; attachHelp(send, 'Post this comment without changing the ticket status.'); const answerStatus = element('p', '', 'operation-status'); answerStatus.setAttribute('role', 'status'); answerForm.append(answerLabel, send, answerStatus);
+                  answerForm.addEventListener('submit', async (event) => { event.preventDefault(); send.disabled = true; showStatus(answerStatus, 'Sending comment…', 'running'); try { await api(`/api/projects/${id}/tickets/${encodeURIComponent(ticket.id)}/comment`, { method:'POST', body:JSON.stringify({ text:answer.value }) }); answer.value = ''; showStatus(answerStatus, 'Comment sent. Choose Re-plan with feedback when ready.'); } catch (error) { showStatus(answerStatus, `Could not send comment: ${error.message}`, 'failed'); } finally { send.disabled = false; } });
+                  const resume = element('button', 'Re-plan with feedback', 'secondary'); resume.type = 'button'; attachHelp(resume, 'Move this ticket to resume so a later planning tick can use your comments.'); resume.addEventListener('click', () => applyTicketAction('replan', item.statusKey, 'Send for re-planning', resume)); ticketDetails.append(answerForm, resume);
+                }
+                const contextPreview = element('section', '', 'context-preview'); contextPreview.append(element('h3', 'Preview ticket context'), element('p', 'See which project knowledge would be selected before running. Actual worktree context may differ.'));
+                const contextStatus = element('p', '', 'operation-status'); contextStatus.setAttribute('role', 'status'); const contextBody = element('div', ''); const contextButtons = element('div', '', 'row');
+                for (const job of ['plan', 'code']) { const contextButton = element('button', job === 'plan' ? 'Preview planning context' : 'Preview coding context', 'secondary'); contextButton.type = 'button'; attachHelp(contextButton, 'Estimate relevant project knowledge for this ticket without starting an agent.'); contextButton.addEventListener('click', async () => {
+                  contextButton.disabled = true; showStatus(contextStatus, 'Selecting relevant knowledge…', 'running'); contextBody.replaceChildren();
+                  try { const preview = await api(`/api/projects/${id}/tickets/${encodeURIComponent(ticket.id)}/context?job=${job}`); const manifest = preview.manifest; showStatus(contextStatus, `Estimated ${manifest.estimatedTokens} of ${manifest.budgetTokens} retrieved-context tokens.`);
+                    contextBody.append(element('p', preview.note));
+                    const selected = element('ul', '', 'context-list'); for (const entry of manifest.selected) selected.append(element('li', `${entry.type}: ${entry.source} — ${entry.reason} (about ${entry.estimatedTokens} tokens)`));
+                    contextBody.append(element('h3', `Selected sources (${manifest.selected.length})`), selected); if (!manifest.selected.length) selected.append(element('li', 'No matching sources were selected.'));
+                    const omitted = element('ul', '', 'context-list'); for (const entry of manifest.omitted) omitted.append(element('li', `${entry.type}: ${entry.source} — ${entry.reason}`));
+                    contextBody.append(element('h3', `Omitted by budget (${manifest.omitted.length})`), omitted); if (!manifest.omitted.length) omitted.append(element('li', 'None omitted by the budget.'));
+                    for (const gap of manifest.gaps) contextBody.append(element('p', `Gap: ${gap}`));
+                  } catch (error) { showStatus(contextStatus, `Could not preview context: ${error.message}`, 'failed'); }
+                  finally { contextButton.disabled = false; }
+                }); contextButtons.append(contextButton); }
+                contextPreview.append(contextButtons, contextStatus, contextBody); ticketDetails.append(contextPreview);
+                ticketDetails.append(disclosure('Show ticket details', element('pre', JSON.stringify(item, null, 2))));
+              } catch (error) { ticketDetails.replaceChildren(element('p', `Could not load ticket: ${error.message}`)); }
+              finally { view.disabled = false; }
+            });
+            const menu = element('details', '', 'row-actions'); const menuLabel = element('summary', 'Actions ▾'); menuLabel.setAttribute('aria-label', `Actions for ${ticket.id}`); attachHelp(menuLabel, `Choose an action for ${ticket.id}.`); const menuItems = element('div', '', 'action-list');
+            view.type = 'button'; view.addEventListener('click', () => { menu.open = false; }); menuItems.append(view);
+            const comment = element('button', 'Add comment', 'secondary'); comment.type = 'button'; attachHelp(comment, 'Write a comment on this ticket without changing its status.');
+            comment.addEventListener('click', () => {
+              menu.open = false; const commentForm = document.createElement('form'); commentForm.append(element('p', `Your comment will be added to ${ticket.id}.`)); const label = element('label', 'Comment'); const input = document.createElement('textarea'); input.required = true; input.maxLength = 12000; attachHelp(input, 'Write feedback or answer a question about this ticket.'); label.append(input); const feedback = element('p', '', 'operation-status'); feedback.setAttribute('role', 'status'); const send = element('button', 'Send comment'); send.type = 'submit'; attachHelp(send, 'Post this comment to the ticket tracker.'); commentForm.append(label, send, feedback);
+              commentForm.addEventListener('submit', async (event) => { event.preventDefault(); send.disabled = true; showStatus(feedback, 'Sending comment…', 'running'); try { await api(`/api/projects/${id}/tickets/${encodeURIComponent(ticket.id)}/comment`, { method:'POST', body:JSON.stringify({ text:input.value }) }); closeActionDrawer(); await loadTickets(); showStatus(queueStatus, `Comment added to ${ticket.id}.`); } catch (error) { showStatus(feedback, `Could not add comment: ${error.message}`, 'failed'); } finally { send.disabled = false; } });
+              openActionDrawer(`Comment on ${ticket.id}`, commentForm, menuLabel);
+            }); menuItems.append(comment);
+            for (const action of ticket.actions || []) {
+              const option = element('button', action.id === 'approve' ? 'Review plan to approve' : action.label, 'secondary'); option.type = 'button';
+              attachHelp(option, action.id === 'approve' ? 'Open the plan and acceptance checks before approving.' : `${action.label} for this ticket. This does not start an agent.`);
+              option.addEventListener('click', () => { menu.open = false; if (action.id === 'approve') { if (detailRow.hidden) view.click(); else view.focus(); } else applyTicketAction(action.id, ticket.statusKey, action.label, option); }); menuItems.append(option);
+            }
+            menu.append(menuLabel, menuItems); actionCell.append(menu); tbody.append(row, detailRow);
+          }
+          if (result.tickets.length) queue.append(tableWrap);
+          showStatus(queueStatus, `Found ${result.tickets.length} ticket(s).`);
+        } catch (error) { showStatus(queueStatus, `Could not load tickets: ${error.message}`, 'failed'); }
+        finally { refreshTickets.disabled = false; }
+      }
+      refreshTickets.addEventListener('click', loadTickets);
+      planTick.textContent = 'Start planning'; codeTick.textContent = 'Start coding'; planTick.className = ''; codeTick.className = '';
+      const runControls = element('div', '', 'row'); runControls.append(planTick, codeTick);
+      ticketToolbar.append(refreshTickets); guided.append(ticketToolbar, queueStatus, queue, element('h2', 'Plan and build'), element('p', 'These actions process the next eligible ticket in the queue. Check the queue before starting; a specific ticket is not guaranteed.'), runControls);
+      const advancedTickets = element('div', ''); advancedTickets.append(ticketIdLabel, ticketTitleLabel, ticketDescriptionLabel, statusLabel, ticketControls);
+      ticketSection.append(guided, ticketActionStatus, pipelineStatus, disclosure('Advanced ticket controls', advancedTickets), disclosure('Show technical details', ticketOutput)); detail.append(ticketSection); watchPipeline(); loadTickets();
+    } else {
+      const ticketSection = element('section', '', 'step'); ticketSection.dataset.panel = 'tickets'; ticketSection.append(element('span', 'TICKET WORKFLOW', 'step-number'), element('h2', 'Describe and deliver a change'), element('p', 'Complete project setup in Settings to create and manage tickets here.')); const setupLink = element('button', 'Go to settings', 'secondary'); setupLink.type = 'button'; attachHelp(setupLink, 'Open project settings to configure the pipeline.'); setupLink.addEventListener('click', () => setView('settings')); ticketSection.append(setupLink); detail.append(ticketSection);
+    }
+    const runLabel = element('label', 'Run name'); const runName = document.createElement('input'); runName.value = 'default'; attachHelp(runName, 'Choose the name of the analysis run to create or inspect.'); runLabel.append(runName);
+    const scopeLabel = element('label', 'Scope'); const scope = document.createElement('input'); scope.value = '.'; attachHelp(scope, 'Select a project-relative file or folder for a new analysis; a dot means the whole project.'); scopeLabel.append(scope);
+    const controls = element('div', '', 'row'); const output = element('pre', 'Select an action to inspect project knowledge.');
+    const brainStatus = element('p', 'Checking analysis status…', 'operation-status'); brainStatus.setAttribute('role', 'status');
+    const brainActionStatus = element('p', '', 'operation-status'); brainActionStatus.setAttribute('role', 'status');
+    const watchBrain = jobWatcher(brain, brainStatus, output, `/api/projects/${id}/brain/runs`, 'Analysis');
+    const action = (title, method, route, payload) => { const button = element('button', title, 'secondary'); button.type = 'button'; attachHelp(button, helpText[title]); button.addEventListener('click', async () => {
+      button.disabled = true; showStatus(brainActionStatus, `${title} in progress…`, 'running'); output.textContent = `${title} in progress…`;
+      try { const name = runName.value.trim() || 'default'; const query = route.includes('?') ? route + encodeURIComponent(name) : route; const data = await api(`/api/projects/${id}/brain/${query}`, method === 'POST' ? { method, body:JSON.stringify(payload(name)) } : {}); output.textContent = data.text ?? JSON.stringify(data, null, 2); if (data.text) output.parentElement.open = true; if (route === 'run') { showStatus(brainActionStatus, 'Analysis started. It may take some time.'); watchBrain(true); } else showStatus(brainActionStatus, describeResult(data)); }
+      catch (error) { showStatus(brainActionStatus, `${title} failed: ${error.message}`, 'failed'); output.textContent = error.message; }
+      finally { button.disabled = false; }
+    }); controls.append(button); return button; };
+    action('List runs', 'GET', 'runs');
+    const prepare = action('Start analysis', 'POST', 'init', (name) => ({ name, scope:scope.value || '.' }));
+    const progress = action('Status', 'GET', 'status?name=');
+    action('Check freshness', 'GET', 'freshness?name=');
+    action('Accept next submission', 'POST', 'analyze', (name) => ({ name }));
+    const run = action('Run with configured agent', 'POST', 'run', (name) => ({ name }));
+    action('Decisions and conflicts', 'GET', 'review');
+    action('Lessons', 'GET', 'lessons');
+    action('View prompt', 'GET', 'document?kind=prompt&name=');
+    action('View submission', 'GET', 'document?kind=submission&name=');
+    action('View summary', 'GET', 'document?kind=synthesis&name=');
+    const mainActions = element('div', '', 'row actions');
+    prepare.textContent = '1. Prepare project'; run.textContent = '2. Analyze with AI'; progress.textContent = 'View progress';
+    prepare.className = ''; run.className = ''; mainActions.append(prepare, run, progress);
+    const advanced = element('div', ''); advanced.append(runLabel, scopeLabel, controls);
+    const knowledgeBrowser = element('section', '', 'knowledge-browser'); knowledgeBrowser.append(element('h2', 'Explore findings'), element('p', 'Browse accepted project knowledge and inspect the source evidence. Findings remain claims to review, even when evidence is current.'));
+    const knowledgeRunLabel = element('label', 'Analysis run'); const knowledgeRun = document.createElement('input'); knowledgeRun.value = 'default'; attachHelp(knowledgeRun, 'Enter the name of an accepted analysis or refresh run.'); knowledgeRunLabel.append(knowledgeRun);
+    const searchLabel = element('label', 'Filter findings'); const search = document.createElement('input'); search.placeholder = 'Search explanations, paths, or stages'; attachHelp(search, 'Filter the findings already loaded for this run.'); searchLabel.append(search);
+    const browse = element('button', 'Browse findings', 'secondary'); browse.type = 'button'; attachHelp(browse, 'Check evidence freshness and load accepted findings without invoking an AI agent.');
+    const knowledgeStatus = element('p', '', 'operation-status'); knowledgeStatus.setAttribute('role', 'status'); const findingsGrid = element('div', '', 'knowledge-grid'); let loadedFindings = [], loadedRun = '';
+    const stages = { '01':'Project overview', '02':'Architecture', '03':'Modules and flows', '04':'Business rules', '05':'Data and integrations', '06':'Patterns and conventions', '07':'Risks', '08':'Validation' };
+    function showFindings() {
+      findingsGrid.replaceChildren(); const term = search.value.trim().toLowerCase();
+      const visible = loadedFindings.filter((finding) => [finding.id, finding.statement, finding.stage, stages[finding.stage], ...finding.evidence.map((source) => source.path)].join(' ').toLowerCase().includes(term));
+      if (!visible.length) { findingsGrid.append(element('p', term ? 'No findings match this filter.' : 'No accepted findings in this run yet.')); return; }
+      for (const finding of visible) {
+        const sourceRun = loadedRun;
+        const card = element('article', '', 'card finding-card'); const meta = element('div', '', 'finding-meta');
+        meta.append(element('span', stages[finding.stage] || `Stage ${finding.stage}`, 'status-badge'), element('span', `Certainty: ${finding.certainty}`, 'status-badge'), element('span', `Evidence: ${finding.freshness}`, 'status-badge'));
+        card.append(meta, element('p', finding.statement), element('small', finding.id));
+        if (finding.freshness === 'stale') card.append(element('p', 'Cited source changed since analysis. Review this finding before relying on it.'));
+        if (!finding.evidence.length) card.append(element('p', 'No source evidence was supplied for this finding.'));
+        for (const [index, source] of finding.evidence.entries()) {
+          const sourceButton = element('button', `${source.path} · lines ${source.startLine}–${source.endLine}`, 'secondary evidence-link'); sourceButton.type = 'button'; attachHelp(sourceButton, 'View the current source excerpt associated with this finding.');
+          const sourceDetails = element('div', ''); sourceButton.addEventListener('click', async () => { sourceButton.disabled = true; sourceDetails.replaceChildren(element('p', 'Loading source…'));
+            try { const query = new URLSearchParams({ name:sourceRun, finding:finding.id, index:String(index) }); const result = await api(`/api/projects/${id}/brain/evidence?${query}`);
+              sourceDetails.replaceChildren(element('p', result.evidenceStatus === 'unchanged' ? 'Cited file matches the analyzed evidence. Confirm the finding against current code.' : 'This file has changed since analysis; the original line numbers may no longer identify the same code.'));
+              sourceDetails.append(element('pre', result.lines.map((line) => `${String(line.line).padStart(4, ' ')}  ${line.text}`).join('\n'), 'source-excerpt')); if (result.truncated) sourceDetails.append(element('p', 'Excerpt was limited for display.'));
+            } catch (error) { sourceDetails.replaceChildren(element('p', `Source unavailable: ${error.message}`)); }
+            finally { sourceButton.disabled = false; }
+          }); card.append(sourceButton, sourceDetails);
+        }
+        findingsGrid.append(card);
+      }
+    }
+    search.addEventListener('input', showFindings);
+    browse.addEventListener('click', async () => { browse.disabled = true; showStatus(knowledgeStatus, 'Checking source evidence and loading findings…', 'running');
+      try { const requestedRun = knowledgeRun.value.trim() || 'default'; const result = await api(`/api/projects/${id}/brain/freshness?name=${encodeURIComponent(requestedRun)}`); loadedRun = requestedRun; loadedFindings = result.findings; showFindings(); showStatus(knowledgeStatus, `${loadedRun}: ${result.findings.length} findings · ${result.counts.current} current · ${result.counts.stale} stale · ${result.counts.unchecked} unchecked. Current means cited bytes match, not that the finding is proven.`); }
+      catch (error) { loadedFindings = []; findingsGrid.replaceChildren(); showStatus(knowledgeStatus, `Could not load findings: ${error.message}`, 'failed'); }
+      finally { browse.disabled = false; }
+    });
+    knowledgeBrowser.append(knowledgeRunLabel, browse, searchLabel, knowledgeStatus, findingsGrid);
+    const refreshForm = document.createElement('form'); refreshForm.append(element('h2', 'Refresh existing knowledge'), element('p', 'Create a separate review run for stale findings, then inspect its prompt and submission before accepting it.'));
+    const refreshLabel = element('label', 'New refresh run name'); const refreshName = document.createElement('input'); refreshName.required = true; attachHelp(refreshName, 'Choose a new lowercase run name for the refresh.'); refreshLabel.append(refreshName);
+    const findingsLabel = element('label', 'Finding IDs (optional, comma-separated)'); const findingIds = document.createElement('input'); attachHelp(findingIds, 'Leave blank to select stale findings, or enter specific finding IDs.'); findingsLabel.append(findingIds);
+    const refreshMessage = element('p', '', 'operation-status'); refreshMessage.setAttribute('role', 'status');
+    const prepareRefresh = element('button', 'Prepare refresh'); prepareRefresh.type = 'submit'; attachHelp(prepareRefresh, 'Prepare a new refresh run without changing accepted knowledge.');
+    const acceptRefresh = element('button', 'Accept selected refresh', 'secondary'); acceptRefresh.type = 'button'; attachHelp(acceptRefresh, 'Validate and accept the selected refresh submission after you review it.');
+    refreshForm.append(refreshLabel, findingsLabel, element('div', '', 'row'), refreshMessage); refreshForm.querySelector('.row').append(prepareRefresh, acceptRefresh);
+    refreshForm.addEventListener('submit', async (event) => { event.preventDefault(); prepareRefresh.disabled = true; showStatus(refreshMessage, 'Preparing refresh…', 'running');
+      try { const target = refreshName.value.trim(); const result = await api(`/api/projects/${id}/brain/refresh`, { method:'POST', body:JSON.stringify({ name:runName.value.trim() || 'default', to:target, findings:findingIds.value.split(',').map((v) => v.trim()).filter(Boolean) }) }); runName.value = target; output.textContent = JSON.stringify(result, null, 2); showStatus(refreshMessage, `Refresh ${target} prepared. Review its prompt and submission before accepting.`); }
+      catch (error) { showStatus(refreshMessage, `Could not prepare refresh: ${error.message}`, 'failed'); }
+      finally { prepareRefresh.disabled = false; }
+    });
+    acceptRefresh.addEventListener('click', async () => { if (!confirm('Accept the selected refresh after reviewing its submission?')) return; acceptRefresh.disabled = true; showStatus(refreshMessage, 'Validating refresh…', 'running');
+      try { const result = await api(`/api/projects/${id}/brain/refresh`, { method:'POST', body:JSON.stringify({ name:runName.value.trim() || 'default', accept:true }) }); output.textContent = JSON.stringify(result, null, 2); showStatus(refreshMessage, 'Refresh accepted. Check freshness to review remaining changes.'); }
+      catch (error) { showStatus(refreshMessage, `Could not accept refresh: ${error.message}`, 'failed'); }
+      finally { acceptRefresh.disabled = false; }
+    });
+    const reviewForm = document.createElement('form'); reviewForm.append(element('h2', 'Record a decision or conflict'), element('p', 'These records preserve team reasoning and review history. Names are recorded as entered.'));
+    const reviewActions = {
+      'decision.add': ['Record a decision', ['id','by','statement','reason','scope']],
+      'conflict.add': ['Record a conflict', ['id','by','summary','left','right','owner','scope']],
+      'conflict.assign': ['Assign a conflict', ['id','by','owner','reason']],
+      'conflict.resolve': ['Resolve a conflict', ['id','by','resolution','reason','decision']],
+      'conflict.reopen': ['Reopen a conflict', ['id','by','reason']],
+    };
+    const lessonActions = {
+      review: ['Review a lesson', ['file','by','reason','applicability','scope','evidence']],
+      correct: ['Correct a lesson', ['file','by','reason','rule','applicability','scope','evidence']],
+      retire: ['Retire a lesson', ['file','by','reason']],
+      duplicate: ['Mark a duplicate', ['file','by','reason','duplicate-of']],
+    };
+    const labels = { id:'Record ID', by:'Your name', statement:'Decision', reason:'Reason', scope:'Project-relative scope (optional)', summary:'Conflict summary', left:'First position', right:'Second position', owner:'Owner', resolution:'Resolution', decision:'Related decision ID (optional)', file:'Lesson path', applicability:'When this lesson applies', evidence:'Evidence paths (optional, comma-separated)', rule:'Corrected guidance', 'duplicate-of':'Original lesson path' };
+    function recordForm(formNode, choices, endpoint, payload) {
+      const selectorLabel = element('label', 'Action'); const selector = document.createElement('select');
+      for (const [value, [title]] of Object.entries(choices)) { const option = element('option', title); option.value = value; selector.append(option); }
+      attachHelp(selector, 'Choose the kind of record or review action.'); selectorLabel.append(selector); const fields = element('div', '');
+      const status = element('p', '', 'operation-status'); status.setAttribute('role', 'status'); const submit = element('button', 'Save record'); submit.type = 'submit'; attachHelp(submit, 'Validate and save this review record with its history.');
+      const inputs = {};
+      function renderFields() { fields.replaceChildren(); for (const key of choices[selector.value][1]) { const wrapper = element('label', labels[key]); const input = document.createElement('input'); input.required = !['scope','evidence','decision'].includes(key); attachHelp(input, labels[key]); wrapper.append(input); fields.append(wrapper); inputs[key] = input; } }
+      selector.addEventListener('change', renderFields); formNode.append(selectorLabel, fields, submit, status); renderFields();
+      formNode.addEventListener('submit', async (event) => { event.preventDefault(); submit.disabled = true; showStatus(status, 'Saving record…', 'running');
+        try { const values = {}; for (const key of choices[selector.value][1]) { const value = inputs[key].value.trim(); if (value) values[key] = key === 'evidence' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value; }
+          const result = await api(`/api/projects/${id}/brain/${endpoint}`, { method:'POST', body:JSON.stringify(payload(selector.value, values)) }); output.textContent = JSON.stringify(result, null, 2); showStatus(status, 'Record saved. Open the technical details or list to review it.'); }
+        catch (error) { showStatus(status, `Could not save record: ${error.message}`, 'failed'); }
+        finally { submit.disabled = false; }
+      });
+    }
+    recordForm(reviewForm, reviewActions, 'review', (type, options) => ({ type, options }));
+    const lessonForm = document.createElement('form'); lessonForm.append(element('h2', 'Review a lesson'), element('p', 'Review, correct, retire, or mark a lesson as a duplicate. Original history is preserved.'));
+    recordForm(lessonForm, lessonActions, 'lesson', (action, options) => ({ action, options }));
+    brain.append(mainActions, brainActionStatus, brainStatus, knowledgeBrowser, disclosure('Advanced analysis options', advanced), disclosure('Refresh project knowledge', refreshForm), disclosure('Decisions and conflicts', reviewForm), disclosure('Review lessons', lessonForm), disclosure('Show technical details', output)); watchBrain();
+    try { const existing = await api(`/api/projects/${id}/brain/runs`); if (existing.runs.length && !existing.runs.includes('default')) { runName.value = existing.runs[0]; knowledgeRun.value = existing.runs[0]; } if (existing.runs.length) brain.insertBefore(element('p', `Existing analysis: ${existing.runs.join(', ')}. You can view progress or continue with the configured agent.`, 'guide-note'), mainActions); }
+    catch { /* Status panel reports connection errors. */ }
+    const remove = element('button', 'Remove registration', 'secondary'); attachHelp(remove, 'Remove this project from the workspace list without deleting its files.'); remove.addEventListener('click', async () => {
+      if (!confirm('Remove this project from the workspace? Its files will not be deleted.')) return;
+      try { await api('/api/projects/' + id, { method:'DELETE' }); selectedProject = null; detail.replaceChildren(); setView('projects'); await refresh(); } catch (error) { message.textContent = error.message; }
+    }); connected.append(remove); setView(openingView);
+  } catch (error) { detail.replaceChildren(element('p', error.message)); }
+}
+attachHelp(document.querySelector('#show-add'), 'Open the form to register an existing local project folder.');
+attachHelp(document.querySelector('#directory'), 'Enter the absolute path of an existing local project folder.');
+attachHelp(document.querySelector('#name'), 'Choose an optional display name; the folder name is used if left empty.');
+attachHelp(form.querySelector('[type="submit"]'), 'Add this folder to the workspace registry without changing its project files.');
+attachHelp(document.querySelector('#cancel-add'), 'Close the add-project form without registering the folder.');
+function closeDrawer() { drawer.hidden = true; document.querySelector('#control-help').hidden = true; document.querySelector('#show-add').focus(); }
+document.querySelector('#show-add').addEventListener('click', () => { document.querySelector('#drawer-message').textContent = ''; drawer.hidden = false; document.querySelector('#directory').focus(); });
+document.querySelector('#cancel-add').addEventListener('click', closeDrawer);
+drawer.addEventListener('click', (event) => { if (event.target === drawer) closeDrawer(); });
+document.addEventListener('keydown', (event) => {
+  const activeDrawer = !actionDrawer.hidden ? actionDrawer : !drawer.hidden ? drawer : null;
+  if (!activeDrawer) return;
+  if (event.key === 'Escape') { if (activeDrawer === actionDrawer) closeActionDrawer(); else closeDrawer(); return; }
+  if (event.key === 'Tab') { const items = [...activeDrawer.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')]; const first = items[0], last = items[items.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } }
+});
+form.addEventListener('submit', async (event) => {
+  event.preventDefault(); const drawerMessage = document.querySelector('#drawer-message'); showStatus(drawerMessage, 'Adding project…', 'running'); const submit = form.querySelector('[type="submit"]'); submit.disabled = true;
+  try { const project = await api('/api/projects', { method:'POST', body:JSON.stringify({ directory:document.querySelector('#directory').value, name:document.querySelector('#name').value || undefined }) }); form.reset(); closeDrawer(); await refresh(); await openProject(project.id); }
+  catch (error) { showStatus(drawerMessage, error.message, 'failed'); }
+  finally { submit.disabled = false; }
+});
+refresh();
+</script>
+</body>
+</html>

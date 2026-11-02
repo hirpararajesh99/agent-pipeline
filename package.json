@@ -6,6 +6,6 @@
   "bin": { "agent-pipeline": "bin/pipeline.mjs" },
   "files": ["bin/", "src/", "templates/", "docs/product/", "docs/features/project-brain/", "AGENTS.md", "PRODUCT.md", "CONTRIBUTING.md", "CHANGELOG.md"],
   "engines": { "node": ">=18.17" },
-  "scripts": { "test": "node --test test/pipeline.test.mjs test/brain.test.mjs test/lessons.test.mjs" },
+  "scripts": { "test": "node --test test/pipeline.test.mjs test/brain.test.mjs test/lessons.test.mjs test/projects.test.mjs" },
   "license": "MIT"
 }

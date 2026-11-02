@@ -326,6 +326,20 @@ agent-pipeline status
 
 The dashboard at `http://localhost:3000` is a local operator view. It is not yet a Project Brain knowledge browser. It has state-changing operations and no authentication; keep it local. Use `ticket show ID` for the saved ticket and plan.
 
+An early multi-project workspace is available with `agent-pipeline workspace --port 3000`.
+Open `http://127.0.0.1:3000` to register existing local project folders and access
+basic Brain and ticket controls. Registration does not initialize a project. The
+guided setup can create missing configuration and job files with a chosen agent,
+tracker, version control, and QA command; it preserves existing files and disables
+Git push by default. The workspace also offers agent selection, basic ticket review,
+analysis refresh, and decision, conflict, and lesson review forms. Full configuration
+editing, detailed knowledge browsing, and complete workflow coverage are still being built;
+common tracker, QA, version-control, deployment, and budget settings can be edited.
+Accepted Brain findings can be browsed with source excerpts and freshness labels; each
+ticket also offers an approximate pre-run context preview using the current workspace.
+The workspace binds to loopback and is intended for use on the local machine. See the
+[multi-project UI design](docs/product/MULTI-PROJECT-UI.md) for scope and limitations.
+
 After proving a workflow, start with scheduled planning:
 
 ```sh

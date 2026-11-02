@@ -314,7 +314,7 @@ export function brainFreshness(cfg, { name = 'default' } = {}) {
     for (const finding of records.filter((f) => !f.retired)) {
       const evidence = finding.evidence.map((e) => {
         const actual = current[e.path];
-        return { path: e.path, expectedHash: e.hash,
+        return { path: e.path, startLine: e.startLine, endLine: e.endLine, expectedHash: e.hash,
           currentHash: /^[a-f0-9]{64}$/.test(actual ?? '') ? actual : null,
           status: actual === e.hash ? 'unchanged' : actual === undefined ? 'deleted'
             : actual.startsWith('symlink:') ? 'symlink' : 'modified' };

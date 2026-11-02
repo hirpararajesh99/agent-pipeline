@@ -27,6 +27,7 @@ Run
   run [--job plan|code|all]     One scheduler tick (default: all). Add --dry-run to only show what it would do
   loop [--interval N]           Repeat "run" every N minutes (default 15)
   serve [--port N]              Start the browser dashboard (default port 3000)
+  workspace [--port N]          Start the local multi-project workspace (preview)
   status                        Pause flag, locks, in-flight ticket, deploy queue, holds, recent events
   pause | unpause               Stop or allow new ticks
 
@@ -94,6 +95,7 @@ export async function main(argv) {
   const cfgPath = flags.config ?? process.env.PIPELINE_CONFIG ?? 'pipeline.config.json';
   if (cmd === 'help' || cmd === '--help') return console.log(HELP);
   if (cmd === 'init') return init();
+  if (cmd === 'workspace') return (await import('./workspace-server.mjs')).createWorkspaceServer({ port: Number(flags.port ?? 3000) });
   if (cmd === 'brain') {
     // Standalone analysis needs no tracker, QA command, or AI CLI configuration.
     const brainCfg = fs.existsSync(cfgPath) || flags.config || process.env.PIPELINE_CONFIG

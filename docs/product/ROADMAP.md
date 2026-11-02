@@ -90,7 +90,10 @@ Acceptance criteria:
 Initial delivery: plan/code prompts now include ranked feature-document and prior-ticket
 sections, effective lessons, and indexed source paths under `knowledge.maxPromptContextTokens`.
 Per-run manifests record approximate size, source paths, relevance scores, and budget
-omissions. The estimate is character-based; task preview, graph-neighbour expansion,
+omissions. The local workspace now offers an on-demand ticket-context preview and a
+basic accepted-finding browser with bounded source excerpts. Preview uses the current
+workspace, may differ from a coding worktree, and does not select Brain findings or
+decisions into prompts. The estimate is character-based; graph-neighbour expansion,
 incremental analysis reuse, and provider-exact usage measurement remain outstanding.
 
 Acceptance criteria:

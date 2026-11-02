@@ -46,6 +46,22 @@ is not an exact tokenizer. Each plan/code run writes a JSON selection manifest u
 omitted by the limit. The complete Markdown knowledge remains in place and can be
 opened by the agent when an excerpt is insufficient.
 
+In the local multi-project workspace (`agent-pipeline workspace`), open a project,
+choose **Project Brain**, and use **Browse findings** to inspect accepted findings,
+their certainty, evidence freshness, and bounded source excerpts. Current means cited
+bytes match the analysis; it does not prove semantic correctness. Changed files show
+current lines at the historical line numbers, which may have shifted. Some file
+types are unavailable in the viewer and excerpts are capped. The viewer applies
+best-effort redaction, not guaranteed secret detection; review content before sharing.
+
+In **Tickets & runs**, review a ticket and select **Preview planning context** or
+**Preview coding context** to see the estimated retrieval budget, selected sources,
+budget omissions, and gaps without invoking an agent. This uses the current project
+workspace and current tracker data, not a prepared coding worktree; actual prompts
+can differ. The omissions list covers budget cuts after earlier relevance and
+configured limits, not every file excluded from retrieval. Accepted Brain findings
+and developer decisions are not yet automatically selected into ticket prompts.
+
 Existing knowledge layouts can be used by setting the docs paths in
 `pipeline.config.json`. For a project with `Product/TaskScheduler/README.md` and
 `Engineering/memory/INDEX.md`, configure:
