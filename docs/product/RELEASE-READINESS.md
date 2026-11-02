@@ -1,6 +1,7 @@
 # Release readiness
 
-Assessment date: 2026-10-27. This is a local engineering assessment, not evidence
+Assessment date: 2026-10-27; ticket-context retrieval regression rechecked 2026-10-28.
+This is a local engineering assessment, not evidence
 that a release has been published or a real customer project has been validated.
 
 ## Can people use it now?
@@ -19,7 +20,7 @@ release, or invite external testers.
 
 | Check | Result and limits |
 | --- | --- |
-| Automated regression suite | All 87 tests passed on Windows with Node 24.22.1; fake providers and local fixtures, including refresh/recovery, review history and lesson lifecycle |
+| Automated regression suite | All 88 tests passed on Windows with the built-in test runner; fake providers and local fixtures, including refresh/recovery, review history, lesson lifecycle, and budgeted ticket-context retrieval |
 | Minimum runtime and other operating systems | Node 18.17 is declared; it and macOS/Linux were not exercised in this review |
 | Package contents | Added an explicit `files` allowlist for runtime, templates, and documentation; development tests and local state are excluded |
 | Local installation | Packed a tarball and installed it offline into a fresh temporary consumer directory; no npm dependencies downloaded |

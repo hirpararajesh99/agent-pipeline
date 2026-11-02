@@ -1,5 +1,18 @@
 # Project Brain feature history
 
+## 2026-10-28 — Initial budgeted ticket-context retrieval
+
+- Plan and code prompts now carry ranked README sections, matching prior-ticket
+  sections, effective lesson guidance, and indexed source paths under a configurable
+  approximate context budget.
+- Added per-run manifests under `.pipeline-state/contexts/` showing selected sources,
+  relevance scores, estimates, and budget omissions. Existing Markdown remains intact.
+- Configured flat roots support layouts such as `Product/TaskScheduler` and
+  `Engineering/memory`; legacy lesson guidance is read from the lesson file rather
+  than confusing an index decision label like `auto-ok` with the lesson rule.
+- Full offline suite: 88 passing tests. Provider-exact token use and real-project
+  savings remain unmeasured; the rest of Milestone 3 is outstanding.
+
 ## 2026-10-27 — Milestone 2d: lesson lifecycle; Milestone 2 complete
 
 - Added lesson inspection/review, scoped applicability, evidence freshness, duplicate

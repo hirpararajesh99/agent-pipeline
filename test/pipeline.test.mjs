@@ -9,10 +9,11 @@ import { runOnce } from '../src/orchestrator.mjs';
 import { acquireLock } from '../src/lock.mjs';
 import { readJson, writeJson, sanitizeText, redact, isInside } from '../src/util.mjs';
 import { buildInvocation } from '../src/adapters/agents/index.mjs';
-import { findContext, parseFrontMatter } from '../src/docs.mjs';
+import { findContext, fitContextBudget, parseFrontMatter } from '../src/docs.mjs';
 import { preflightTicket } from '../src/preflight.mjs';
 import { validateArtifacts } from '../src/artifacts.mjs';
 import { buildProjectIndex, findImpact, findIndexContext, writeProjectIndex } from '../src/indexer.mjs';
+import { buildPrompt } from '../src/prompt.mjs';
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const node = `"${process.execPath}"`;
@@ -258,8 +259,69 @@ test('an enhancement later: the agent is pointed at the existing README, changel
   assert.match(prompt, /CHANGELOG\.md/);
   assert.match(prompt, /tickets\/T1\.md/);
   assert.match(prompt, /lessons\/.*check-the-related-list/);
+  assert.match(prompt, /SELECTED PROJECT KNOWLEDGE/);
+  assert.match(prompt, /Retrieved knowledge budget/);
+  const manifest = readJson(path.join(s.dir, 'state', 'contexts', 'T2-plan.json'));
+  assert.ok(manifest.estimatedTokens <= manifest.budgetTokens);
+  assert.ok(manifest.selected.some((item) => item.type === 'feature-section'));
   const ctx = findContext(s.work(), s.cfg, { id: 'T2', title: 'Widget list needs a search box', description: '' });
   assert.equal(ctx.features[0].slug, 'widgets');
+});
+
+test('context retrieval supports Product feature folders and Engineering memory paths within one budget', () => {
+  const s = setup({
+    docs: { featuresDir: 'Product', lessonsDir: 'Engineering/memory/lessons', memoryIndex: 'Engineering/memory/INDEX.md' },
+    knowledge: { maxPromptContextTokens: 400 },
+  });
+  fs.mkdirSync(s.work('Product', 'TaskScheduler', 'tickets'), { recursive: true });
+  fs.mkdirSync(s.work('Engineering', 'memory', 'lessons'), { recursive: true });
+  fs.writeFileSync(s.work('Product', 'TaskScheduler', 'README.md'), [
+    '# Task Scheduler',
+    '## Retry failed delivery',
+    'Failed email queue rows can be retried after a one-hour cooldown. Retry sets the queue row back to pending and the processor sends it.',
+    '## New hire onboarding',
+    'The onboarding workflow sends reminders to new employees.',
+  ].join('\n'));
+  fs.writeFileSync(s.work('Product', 'TaskScheduler', 'tickets', 'older-retry.md'), [
+    '# Retry failed email delivery',
+    '## Acceptance checks',
+    'Failed email queue rows can be requeued after the cooldown; the normal processor sends them.',
+    '## Unrelated UI',
+    'The admin schedule editor has a wizard.',
+  ].join('\n'));
+  fs.writeFileSync(s.work('Engineering', 'memory', 'INDEX.md'), [
+    '# Memory index', '', '| Date | Ticket | Feature | Decision | Lesson |', '| --- | --- | --- | --- | --- |',
+    '| 2026-08-26 | T9 | Task Scheduler | auto-ok | [retry lesson](lessons/retry.md) |',
+  ].join('\n'));
+  fs.writeFileSync(s.work('Engineering', 'memory', 'lessons', 'retry.md'), '# Retry lesson\n\n## Do not repeat\n\nRetry only failed rows and let the queue processor perform delivery.');
+
+  const context = findContext(s.work(), s.cfg, {
+    id: 'T10', title: 'Retry failed email delivery',
+    description: 'Allow retry of failed Task Scheduler email queue rows after cooldown.',
+  });
+  assert.equal(context.features[0].readme, 'Product/TaskScheduler/README.md');
+  assert.equal(context.lessons[0].file, 'Engineering/memory/lessons/retry.md');
+  assert.equal(context.lessons[0].summary, 'Retry only failed rows and let the queue processor perform delivery.');
+  const fitted = fitContextBudget(context, {
+    files: [{ path: 'ServicesBLL/TaskSchedulingJobBLL.cs', kind: 'csharp', refs: [], score: 10 }],
+    edges: [{ from: 'ServicesBLL/TaskSchedulingJobBLL.cs', to: 'Tests/TaskSchedulingTests.cs' }],
+    totalFiles: 20,
+  }, s.cfg);
+  assert.ok(fitted.manifest.estimatedTokens <= fitted.manifest.budgetTokens);
+  assert.ok(fitted.manifest.selected.some((item) => item.type === 'feature-section'));
+  assert.ok(fitted.manifest.selected.some((item) => item.type === 'lesson'));
+  assert.ok(fitted.context.features[0].plans.some((plan) => plan.file.endsWith('older-retry.md')));
+  const prompt = buildPrompt({
+    cfg: s.cfg, ticket: { id: 'T10', title: 'Retry failed email delivery', description: 'Retry Task Scheduler email queue rows after cooldown.' },
+    workDir: s.work(), artifactsDir: s.work('.pipeline', 'tickets', 'T10'), failure: null, plan: null,
+    context: fitted.context, comments: [], readmePath: 'Product/TaskScheduler/README.md', isRedo: false,
+    preflight: null, indexContext: fitted.indexContext, contextManifestPath: 'state/contexts/T10-code.json',
+  });
+  assert.match(prompt, /one-hour cooldown/);
+  assert.match(prompt, /let the queue processor perform delivery/);
+  assert.match(prompt, /TaskSchedulingJobBLL\.cs/);
+  assert.doesNotMatch(prompt, /onboarding workflow sends reminders/);
+  assert.doesNotMatch(prompt, /Effective guidance: auto-ok/);
 });
 
 test('plan and code jobs use separate locks', async () => {

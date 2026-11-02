@@ -151,7 +151,7 @@ export function findIndexContext(index, cfg, { title, description, comments = []
   const picked = ranked.slice(0, cfg.knowledge.maxContextFiles);
   const ids = new Set(picked.map((f) => f.path));
   const edges = index.graph.edges.filter((e) => ids.has(e.from) || ids.has(e.to)).slice(0, cfg.knowledge.maxContextEdges);
-  return { files: picked.map(({ path: file, kind, refs }) => ({ path: file, kind, refs: refs.slice(0, 6) })), edges, totalFiles: index.files.length };
+  return { files: picked.map(({ path: file, kind, refs, score }) => ({ path: file, kind, refs: refs.slice(0, 6), score })), edges, totalFiles: index.files.length };
 }
 
 export function findImpact(index, requested) {

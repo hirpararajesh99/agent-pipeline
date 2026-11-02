@@ -4,7 +4,7 @@ Understand an existing codebase, keep team knowledge current, and guide AI codin
 
 **Project Brain** creates reusable architecture and code knowledge with source evidence, developer decisions and lessons. **The pipeline** coordinates your coding agent, tracker, tests and version control, one coding ticket at a time.
 
-Built with Node.js built-ins and zero npm dependencies. **Developer preview:** Project Brain Milestones 1 and 2 are implemented; public-beta and production readiness are not established. See [release readiness](docs/product/RELEASE-READINESS.md) for tested workflows and remaining checks.
+Built with Node.js built-ins and zero npm dependencies. **Developer preview:** Project Brain Milestones 1 and 2 are implemented, with initial explainable, budgeted ticket-context retrieval from Milestone 3; public-beta and production readiness are not established. See [release readiness](docs/product/RELEASE-READINESS.md) for tested workflows and remaining checks.
 
 [Quick start](#quick-start-analyse-an-existing-project) · [Team workflows](#keep-project-knowledge-current) · [Ticket automation](#run-your-first-ticket) · [Limitations](#current-status-and-limitations) · [Documentation](#documentation)
 
@@ -301,6 +301,14 @@ The index maps selected file relationships, including .NET project references, c
 
 Existing feature documentation is reused. When a feature has no README, the planning workflow can describe current behavior and seed one. Future tasks still require source inspection.
 
+Plan and code prompts include relevant feature-document sections, prior-ticket sections,
+effective lessons, and indexed source paths. Configure `knowledge.maxPromptContextTokens`
+to cap retrieved context; the estimate uses characters divided by three plus formatting
+overhead, not provider-exact.
+The per-run selection report is saved under `.pipeline-state/contexts/`. Existing
+knowledge layouts can be mapped with `docs.featuresDir`, `docs.lessonsDir`, and
+`docs.memoryIndex` (for example `Product` and `Engineering/memory/INDEX.md`).
+
 ### Select providers and integrations
 
 Use `agent.provider` for coding, `agent.plan` for planning overrides, and `agent.brain` for automated analysis overrides. Presets live in [the agent adapter](src/adapters/agents/index.mjs); custom command/argument overrides live under `agent.providers.<name>`. Match the preset to your installed CLI's supported arguments.
@@ -336,7 +344,7 @@ agent-pipeline loop --job plan --interval 15
 | Milestone 4: measured legacy/modern .NET pilot | Planned |
 | Milestone 5: broader access and adoption | Planned |
 
-Local validation includes 87 passing tests on Windows with Node 24.22.1 and offline package/CLI smoke checks. The suite uses fake agents and local fixtures. The declared Node 18.17 minimum, macOS/Linux, real AI providers, ClickUp, Git remotes, TFVC and deployment still need release validation.
+Local validation includes 88 passing tests on Windows and offline package/CLI smoke checks. The suite uses fake agents and local fixtures. The declared Node 18.17 minimum, macOS/Linux, real AI providers, ClickUp, Git remotes, TFVC and deployment still need release validation.
 
 Important boundaries:
 

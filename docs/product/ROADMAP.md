@@ -87,6 +87,12 @@ Acceptance criteria:
 
 ## 3. Explainable context and incremental analysis
 
+Initial delivery: plan/code prompts now include ranked feature-document and prior-ticket
+sections, effective lessons, and indexed source paths under `knowledge.maxPromptContextTokens`.
+Per-run manifests record approximate size, source paths, relevance scores, and budget
+omissions. The estimate is character-based; task preview, graph-neighbour expansion,
+incremental analysis reuse, and provider-exact usage measurement remain outstanding.
+
 Acceptance criteria:
 
 - A task context preview lists selected evidence, reasons, budget, omissions, and gaps.

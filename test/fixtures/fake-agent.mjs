@@ -75,7 +75,7 @@ process.stdin.on('end', () => {
   else steps = [{ action: 'open', assert: 'thing visible' }];
   write('qa.json', { ticketId: id, loginProfile: 'default', steps });
 
-  const readme = /Feature README: (\S+?)\. Read/.exec(prompt)?.[1];
+  const readme = /Feature README: (\S+?)\. The selected excerpts/.exec(prompt)?.[1];
   if (readme && mode !== 'nodocs') fs.appendFileSync(path.join(workDir, readme), `\n- Widgets now handled for ${id}\n`);
   if (prompt.includes('REDO PASS') && process.env.FAKE_LESSON !== 'skip') {
     write('lesson.json', { title: 'Check the related list', symptom: 'Related list stayed stale', rootCause: 'Only the main list was updated', rule: 'Always update every list that shows the value', keywords: ['list', 'widget'] });

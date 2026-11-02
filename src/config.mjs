@@ -83,6 +83,7 @@ export const DEFAULTS = {
     indexMarkdown: 'docs/PROJECT-INDEX.md',
     maxContextFiles: 15,
     maxContextEdges: 30,
+    maxPromptContextTokens: 6000,
     maxFileBytes: 1024 * 1024,
     adapters: ['dotnet'],
     ignore: ['node_modules', '.git', '.pipeline', '.pipeline-state', '.project-brain', 'dist', 'build', 'bin', 'obj', '.vs', '.idea'],
@@ -148,6 +149,7 @@ function validate(cfg) {
   if (!(cfg.preflight.minDescriptionChars >= 0)) errs.push('preflight.minDescriptionChars must be >= 0');
   if (!Array.isArray(cfg.preflight.riskPatterns)) errs.push('preflight.riskPatterns must be an array');
   if (!(cfg.knowledge.maxContextFiles >= 1)) errs.push('knowledge.maxContextFiles must be >= 1');
+  if (!(cfg.knowledge.maxPromptContextTokens >= 1)) errs.push('knowledge.maxPromptContextTokens must be >= 1');
   if (!(cfg.knowledge.maxFileBytes >= 1)) errs.push('knowledge.maxFileBytes must be >= 1');
   if (!Array.isArray(cfg.knowledge.ignore)) errs.push('knowledge.ignore must be an array');
   if (!Array.isArray(cfg.knowledge.adapters)) errs.push('knowledge.adapters must be an array');

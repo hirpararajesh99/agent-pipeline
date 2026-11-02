@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { ensureDir } from './util.mjs';
+import { ensureDir, safeProjectPath } from './util.mjs';
 import { lessonSelection } from './brain-lessons.mjs';
 
 const STOP = new Set(('the and for with that this from have has had are was were not but you your our into when then than them they their there what which will would should ' +
@@ -13,6 +13,28 @@ export const isFeatureSlug = (s) => /^[A-Za-z0-9][A-Za-z0-9_-]{0,60}$/.test(Stri
 const posix = (...p) => path.posix.join(...p.map((x) => String(x).replace(/\\/g, '/')));
 const toArr = (v) => (Array.isArray(v) ? v : v ? [String(v)] : []);
 const cell = (s) => String(s ?? '').replace(/[|\r\n]+/g, ' ').trim();
+const estimateTokens = (text) => Math.ceil(String(text ?? '').length / 3);
+
+function markdownSections(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
+  const sections = [];
+  let current = { heading: 'Introduction', lines: [] };
+  for (const line of lines) {
+    const heading = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (heading) {
+      if (current.lines.some((x) => x.trim())) sections.push(current);
+      current = { heading: heading[2], lines: [line] };
+    } else current.lines.push(line);
+  }
+  if (current.lines.some((x) => x.trim())) sections.push(current);
+  return sections.map((s) => ({ heading: s.heading, text: s.lines.join('\n').trim() }));
+}
+
+function relevance(text, words) {
+  let score = 0;
+  for (const word of tokens(text)) if (words.has(word)) score++;
+  return score;
+}
 
 export function parseFrontMatter(text) {
   const t = String(text).replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
@@ -58,14 +80,28 @@ function readIndexRows(root, cfg) {
     const c = line.split('|').slice(1, -1).map((s) => s.trim());
     if (c.length < 5) continue;
     const link = /\]\(([^)]+)\)/.exec(c[4]);
-    rows.push({ date: c[0], ticket: c[1], feature: c[2], summary: c[3], file: link ? posix(dir, link[1]) : null });
+    const file = link ? posix(dir, link[1]) : null;
+    const summary = file ? lessonRule(root, cfg, file) || c[3] : c[3];
+    rows.push({ date: c[0], ticket: c[1], feature: c[2], summary, file });
   }
   return rows;
 }
 
+function lessonRule(root, cfg, rel) {
+  const lessonBase = `${posix(cfg.docs.lessonsDir).replace(/\/+$/, '')}/`;
+  if (!rel.startsWith(lessonBase)) return '';
+  let file;
+  try { file = safeProjectPath(root, rel); } catch { return ''; }
+  if (!fs.existsSync(file)) return '';
+  const text = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+  const headings = [...text.matchAll(/^##\s+(.+?)\s*\n([\s\S]*?)(?=^##\s|\s*$)/gm)];
+  const useful = headings.find((m) => /^(rule|guidance|do not repeat|rule of thumb)\b/i.test(m[1].trim()));
+  return useful?.[2]?.trim() ?? '';
+}
+
 /**
  * Deterministic retrieval, no AI involved: which feature docs and lessons are relevant to this ticket.
- * The result is injected into the agent prompt as "read these first".
+ * The result is injected into plan/code prompts as ranked excerpts.
  */
 export function findContext(root, cfg, { id, title, description, comments = [], hintFeature, paths = [] }) {
   const text = [title, description, ...comments].join(' ');
@@ -91,8 +127,27 @@ export function findContext(root, cfg, { id, title, description, comments = [], 
       const dir = path.join(root, cfg.docs.featuresDir, f.slug);
       const changelog = fs.existsSync(path.join(dir, 'CHANGELOG.md')) ? posix(cfg.docs.featuresDir, f.slug, 'CHANGELOG.md') : null;
       const tdir = path.join(dir, 'tickets');
-      const plans = fs.existsSync(tdir) ? fs.readdirSync(tdir).filter((n) => n.endsWith('.md')).sort().slice(-5).map((n) => posix(cfg.docs.featuresDir, f.slug, 'tickets', n)) : [];
-      return { slug: f.slug, title: f.title, readme: f.readme, score: f.score, changelog, plans, paths: f.paths };
+      const sectionCandidates = markdownSections(f.body).map((section) => ({
+        ...section,
+        score: relevance(`${section.heading} ${section.text}`, tk) + (f.score >= 100 ? 1 : 0),
+        source: f.readme,
+      })).sort((a, b) => b.score - a.score || a.heading.localeCompare(b.heading));
+      const relevantSections = sectionCandidates.filter((section) => section.score > 0);
+      const sections = (relevantSections.length ? relevantSections : sectionCandidates.slice(0, 1))
+        .slice(0, cfg.docs.maxSectionsPerFeature ?? 4);
+      const planCandidates = fs.existsSync(tdir)
+        ? fs.readdirSync(tdir).filter((n) => n.endsWith('.md')).map((name) => {
+          const rel = posix(cfg.docs.featuresDir, f.slug, 'tickets', name);
+          const content = fs.readFileSync(path.join(tdir, name), 'utf8');
+          const planScore = relevance(`${name} ${content}`, tk) + (id && name.startsWith(`${id}.`) ? 100 : 0);
+          const sections = markdownSections(content).map((section) => ({
+            ...section,
+            score: relevance(`${section.heading} ${section.text}`, tk) + (id && name.startsWith(`${id}.`) ? 100 : 0),
+          })).filter((section) => section.score > 0).sort((a, b) => b.score - a.score || a.heading.localeCompare(b.heading)).slice(0, cfg.docs.maxSectionsPerPlan ?? 3);
+          return { file: rel, score: planScore, sections };
+        }).filter((p) => p.score > 0).sort((a, b) => b.score - a.score || a.file.localeCompare(b.file)).slice(0, cfg.docs.maxTicketPlans ?? 2)
+        : [];
+      return { slug: f.slug, title: f.title, readme: f.readme, score: f.score, changelog, sections, plans: planCandidates, paths: f.paths };
     });
 
   const slugs = new Set(features.map((f) => f.slug));
@@ -108,9 +163,76 @@ export function findContext(root, cfg, { id, title, description, comments = [], 
     .filter((r) => r.score >= 3 && r.file && fs.existsSync(path.join(root, r.file)))
     .sort((a, b) => b.score - a.score)
     .slice(0, cfg.docs.maxLessons)
-    .map((r) => ({ file: r.file, summary: r.summary, ticket: r.ticket, review: r.review,
+    .map((r) => ({ file: r.file, summary: r.summary, ticket: r.ticket, review: r.review, score: r.score,
       scope: r.scope, applicability: r.applicability, revision: r.revision, freshness: r.freshness }));
   return { features, lessons };
+}
+
+/** Apply one deterministic budget to retrieved feature, lesson, and project-index context. */
+export function fitContextBudget(context, indexContext, cfg) {
+  const budget = cfg.knowledge.maxPromptContextTokens;
+  const candidates = [];
+  for (const feature of context.features) {
+    for (const section of feature.sections ?? []) candidates.push({
+      type: 'feature-section', score: section.score + Math.min(feature.score, 8), source: section.source,
+      label: `${feature.title}: ${section.heading}`, text: section.text,
+      apply: (target) => { target.features.find((f) => f.slug === feature.slug)?.sections.push(section); },
+      feature: feature.slug,
+    });
+    for (const plan of feature.plans ?? []) for (const section of plan.sections) candidates.push({
+      type: 'ticket-plan', score: section.score + Math.min(feature.score, 8) + 6, source: plan.file,
+      label: `${feature.title} prior ticket: ${section.heading}`, text: section.text,
+      apply: (target) => {
+        const picked = target.features.find((f) => f.slug === feature.slug)?.plans;
+        if (picked && !picked.some((p) => p.file === plan.file)) picked.push({ file: plan.file, sections: [] });
+        picked?.find((p) => p.file === plan.file)?.sections.push(section);
+      },
+    });
+  }
+  for (const lesson of context.lessons) candidates.push({
+    type: 'lesson', score: lesson.score + 10, source: lesson.file, label: `Lesson ${lesson.ticket}`,
+    text: `${lesson.summary}\n${lesson.applicability ?? ''}`, apply: (target) => target.lessons.push(lesson),
+  });
+  for (const file of indexContext.files) candidates.push({
+    type: 'source-path', score: (file.score ?? 1) + 2, source: file.path, label: `Source path ${file.path}`,
+    text: `${file.path} ${file.kind} ${(file.refs ?? []).join(' ')}`,
+      apply: (target) => target.index.files.push(file),
+  });
+  for (const edge of indexContext.edges) candidates.push({
+    type: 'relationship', score: 1, source: `${edge.from} -> ${edge.to}`,
+    label: `Relationship ${edge.from} -> ${edge.to}`, text: `${edge.from} ${edge.to}`,
+    apply: (target) => target.index.edges.push(edge),
+  });
+
+  candidates.sort((a, b) => b.score - a.score || a.type.localeCompare(b.type) || a.source.localeCompare(b.source));
+  const fitted = {
+    features: context.features.map((f) => ({ ...f, sections: [], plans: [] })),
+    lessons: [],
+    index: { files: [], edges: [], totalFiles: indexContext.totalFiles },
+  };
+  const selected = [];
+  const omitted = [];
+  let estimatedTokens = 0;
+  for (const item of candidates) {
+    const cost = estimateTokens(`${item.label} ${item.source}\n${JSON.stringify(item.text)}\n${'x'.repeat(48)}`);
+    if (estimatedTokens + cost > budget) {
+      omitted.push({ type: item.type, source: item.source, reason: 'context budget' });
+      continue;
+    }
+    item.apply(fitted);
+    estimatedTokens += cost;
+    selected.push({ type: item.type, source: item.source, reason: `relevance score ${item.score}`, estimatedTokens: cost });
+  }
+  fitted.features = fitted.features.filter((f) => f.sections.length || f.plans.length);
+  fitted.selection = {
+    budgetTokens: budget,
+    estimatedTokens,
+    estimator: 'characters divided by three with formatting overhead; conservative estimate, not provider-exact',
+    selected,
+    omitted,
+    gaps: fitted.features.length ? [] : ['No relevant feature-document sections fit or matched the configured sources.'],
+  };
+  return { context: fitted, indexContext: fitted.index, manifest: fitted.selection };
 }
 
 export function seedReadme(root, cfg, plan) {

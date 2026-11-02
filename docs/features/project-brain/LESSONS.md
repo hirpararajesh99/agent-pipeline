@@ -86,6 +86,6 @@ secrets out of lessons. The feature does not train the model or guarantee fewer 
 
 Limits: 1 MiB per lesson source, 8 MiB per evidence file, 16 MiB per history, and 500
 lessons per duplicate comparison (narrow scope for larger reviews). Automatic archival,
-semantic duplicate detection, authenticated review and budgeted context selection are
-not implemented. [Milestone 3](../../product/ROADMAP.md#3-explainable-context-and-incremental-analysis)
-is next.
+semantic duplicate detection and authenticated review are not implemented. Ticket
+prompts now apply an approximate shared budget to retrieved lessons and other context;
+see the [context retrieval guide](README.md#use-today) for limits.

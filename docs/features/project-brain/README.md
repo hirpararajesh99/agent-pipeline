@@ -36,9 +36,39 @@ or every runtime dependency. `docs find` selects feature docs and lessons; it do
 not run a deep repository analysis. These commands do not invoke a coding agent.
 
 Plan and code prompts receive compact index context alongside feature docs and
-lessons. The check-in flow writes refreshed index artifacts after successful checks
-when knowledge is enabled. Configure paths, ignore names, enabled adapters, and
-context file/edge limits in `knowledge` in `pipeline.config.json`.
+lessons. Ticket prompts now include relevant Markdown sections and matching prior
+ticket sections directly, plus effective lesson guidance and indexed source paths.
+`knowledge.maxPromptContextTokens` applies one deterministic budget to that retrieved
+content. Its conservative estimate uses characters divided by three plus formatting
+overhead, is provider-independent, and
+is not an exact tokenizer. Each plan/code run writes a JSON selection manifest under
+`.pipeline-state/contexts/` with selected sources, reasons, estimated budget, and items
+omitted by the limit. The complete Markdown knowledge remains in place and can be
+opened by the agent when an excerpt is insufficient.
+
+Existing knowledge layouts can be used by setting the docs paths in
+`pipeline.config.json`. For a project with `Product/TaskScheduler/README.md` and
+`Engineering/memory/INDEX.md`, configure:
+
+```json
+{
+  "docs": {
+    "featuresDir": "Product",
+    "lessonsDir": "Engineering/memory/lessons",
+    "memoryIndex": "Engineering/memory/INDEX.md",
+    "featureIndex": "Product/FEATURES.md"
+  },
+  "knowledge": {
+    "maxPromptContextTokens": 6000
+  }
+}
+```
+
+This maps direct feature folders such as `Product/TaskScheduler`. Nested feature
+folders need to be placed under a configured feature root with one README level, or
+mapped in a future extension. The check-in flow writes refreshed index artifacts
+after successful checks when knowledge is enabled. Configure ignore names, enabled
+adapters, and context file/edge limits in `knowledge` as before.
 
 ## Coverage and limitations
 
@@ -48,7 +78,7 @@ context file/edge limits in `knowledge` in `pipeline.config.json`.
 | Web relationships | Selected HTML/CSS/JS/TS/manifest references; no complete module resolver or runtime analysis |
 | .NET | Solution/project references, code-behind, C# namespaces/types, selected routes and DI patterns |
 | .NET precision | Regex/name-based evidence; type matches can be ambiguous, reflection and dynamic flows are not resolved |
-| Context | Keyword/path ranking and file/edge count limits; no semantic ranking or measured token budget |
+| Context | Keyword/path ranking, selected Markdown sections, lesson lifecycle, and an approximate retrieved-context budget; no semantic ranking or provider-exact token accounting |
 | Feature knowledge | Feature READMEs, plans, changelogs, and lessons reused by the pipeline |
 | Learning | Lesson retrieval supplies context; no model training or guarantee of reduced mistakes |
 | Lesson lifecycle | [Scoped applicability, review, freshness, correction, duplicate review and retirement](LESSONS.md); effective rules in prompts and preserved history |
@@ -62,7 +92,9 @@ does not infer those topics. Decisions and conflicts are recorded explicitly thr
 the [review commands](REVIEW.md). A knowledge browser and automatic conflict discovery
 remain unimplemented. Java, Python, and PHP do not yet have dedicated analyzers;
 JavaScript reference extraction is not full Node application understanding. Token or
-time savings have not been measured.
+time savings have not been measured. Context manifests report estimated retrieval
+size and omissions, but they do not measure fixed prompt overhead, provider-side
+tokenization, output tokens, or retries.
 
 ## Guided analysis walkthrough
 
@@ -273,6 +305,12 @@ Developers can direct their agent to the generated context; automatic task selec
 of the new findings belongs to the later retrieval milestone.
 
 ## Validation evidence
+
+The initial ticket-context retrieval delivery was regression-checked on Windows on
+2026-10-28. The full offline suite passed all 88 tests, including a new archive-layout
+case for `Product/TaskScheduler` and `Engineering/memory`, source-rule extraction from
+legacy lessons, prompt inclusion, manifest creation, and budget accounting. This does
+not measure provider token usage or prove savings on an external project.
 
 `test/brain.test.mjs` covers eight-stage legacy/modern .NET analysis, repeated init,
 missing docs/history, interrupted rendering, invalid evidence, changed application

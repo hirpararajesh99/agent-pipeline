@@ -22,6 +22,7 @@
     "graphFile": "docs/project-graph.json",
     "indexMarkdown": "docs/PROJECT-INDEX.md",
     "maxContextFiles": 15,
+    "maxPromptContextTokens": 6000,
     "adapters": ["dotnet"]
   },
   "preflight": {

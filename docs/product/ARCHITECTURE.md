@@ -14,15 +14,20 @@ Status: current foundations plus proposed design. See the
 | `src/brain-lessons.mjs` | Lesson review/revision history, applicability, duplicate review, retirement and retrieval filtering |
 | `src/indexers/index.mjs` | Built-in analyzer registry |
 | `src/indexers/dotnet.mjs` | Heuristic .NET project, type, namespace, route, and DI relationships |
-| `src/docs.mjs` | Feature documentation and lesson selection/indexing |
+| `src/docs.mjs` | Feature documentation and lesson retrieval, section selection, and deterministic context budgeting |
 | `src/preflight.mjs` | Ticket completeness and risk hints before agent invocation |
 | `src/prompt.mjs` | Includes selected feature, lesson, and index context |
 | `src/orchestrator.mjs` | Builds context for plan/code and writes indexes during successful check-in flow |
 
 The index is rebuilt from source; its hashes are not an incremental cache. Accepted
 analysis findings have a separate on-demand SHA-256 freshness check. Static graph edges are navigation aids, not guaranteed
-runtime dependencies. Current retrieval ranks file paths and feature paths, with
-limits on selected files and edges; it has no measured token-budget enforcement.
+runtime dependencies. Ticket retrieval ranks feature documentation sections, prior
+ticket sections, effective lessons, and indexed source paths. One configured
+conservative character-based estimate budget trims that retrieved context and a per-run manifest
+records selection reasons and omissions. The estimate is not provider-exact and does
+not include fixed prompt instructions or provider output tokens. Existing flat feature
+roots can point at directories such as `Product`; nested feature discovery remains a
+future extension.
 
 ## Proposed knowledge model
 
@@ -167,8 +172,9 @@ the project ledger remains independent and continues to accumulate history.
 
 CLI knowledge/list/show commands expose the full relevant history; CLI status and
 freshness include current applicable decisions and open conflicts. Initial analysis
-prompts point to the ledger as context when available. Integration into ordinary
-ticket planning/coding and budgeted context selection remains Milestone 3 work.
+prompts point to the ledger as context when available. Ticket planning/coding now
+uses a first deterministic, budgeted retrieval pass; task preview, graph-neighbour
+expansion, and incremental reuse remain Milestone 3 work.
 
 ### Lesson lifecycle (Milestone 2d)
 

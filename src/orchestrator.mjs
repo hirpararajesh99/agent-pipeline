@@ -4,7 +4,7 @@ import { createTracker } from './adapters/trackers/index.mjs';
 import { createVcs } from './adapters/vcs/index.mjs';
 import { providerName, runAgent } from './adapters/agents/index.mjs';
 import { validateArtifacts } from './artifacts.mjs';
-import { appendChangelog, fileHash, findContext, rebuildFeatureIndex, seedReadme, writeLesson, writePlanDoc, readmeRel } from './docs.mjs';
+import { appendChangelog, fileHash, findContext, fitContextBudget, rebuildFeatureIndex, seedReadme, writeLesson, writePlanDoc, readmeRel } from './docs.mjs';
 import { runShell } from './exec.mjs';
 import { acquireLock } from './lock.mjs';
 import { diffSnapshots, snapshot, validatePlan } from './plan.mjs';
@@ -12,10 +12,18 @@ import { preflightTicket } from './preflight.mjs';
 import { buildProjectIndex, findIndexContext, writeProjectIndex } from './indexer.mjs';
 import { buildPlanPrompt, buildPrompt } from './prompt.mjs';
 import { State } from './state.mjs';
-import { ensureDir, isSafeId, readJson, redact, render, sanitizeText, tail } from './util.mjs';
+import { ensureDir, isSafeId, readJson, redact, render, sanitizeText, tail, writeJson } from './util.mjs';
 
 const MIN = 60000;
 export const PREFIX = '[agent-pipeline] ';
+
+function saveContextManifest(cfg, ticketId, job, manifest) {
+  const dir = path.join(cfg.stateDir, 'contexts');
+  ensureDir(dir);
+  const file = path.join(dir, `${ticketId}-${job}.json`);
+  writeJson(file, { ticketId, job, generatedAt: new Date().toISOString(), ...manifest });
+  return file;
+}
 
 /**
  * One scheduler tick. job = "code" | "plan" | "all" (default).
@@ -178,13 +186,15 @@ async function codingStage(ctx, ticket, provider) {
     fs.writeFileSync(path.join(artifactsDir, 'plan.json'), JSON.stringify(plan, null, 2));
   }
   const comments = preflightComments;
-  const context = findContext(workDir, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: plan?.feature, paths: plan?.files ?? [] });
-  const indexContext = findIndexContext(buildProjectIndex(workDir, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: context });
+  const retrievedContext = findContext(workDir, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: plan?.feature, paths: plan?.files ?? [] });
+  const retrievedIndex = findIndexContext(buildProjectIndex(workDir, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: retrievedContext });
+  const fitted = fitContextBudget(retrievedContext, retrievedIndex, cfg);
+  const contextManifestPath = saveContextManifest(cfg, id, 'code', fitted.manifest);
 
   const failure = state.get('failures', {})[id];
   const promptFile = path.join(cfg.stateDir, 'prompts', `${id}-code.md`);
   ensureDir(path.dirname(promptFile));
-  fs.writeFileSync(promptFile, buildPrompt({ cfg, ticket, workDir, artifactsDir, failure, plan, context, comments, readmePath, isRedo, preflight: preflightResult, indexContext }));
+  fs.writeFileSync(promptFile, buildPrompt({ cfg, ticket, workDir, artifactsDir, failure, plan, context: fitted.context, comments, readmePath, isRedo, preflight: preflightResult, indexContext: fitted.indexContext, contextManifestPath }));
 
   state.event('agent-start', { ticket: id, provider, job: 'code' });
   const res = await runAgent(provider, cfg, {
@@ -378,14 +388,16 @@ async function planStage(ctx, ticket, provider, { inline = false } = {}) {
   ensureDir(artifactsDir);
   fs.rmSync(path.join(artifactsDir, 'plan.json'), { force: true });
 
-  const context = findContext(root, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: prevPlan?.feature });
-  const indexContext = findIndexContext(buildProjectIndex(root, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: context });
-  const preflightResult = await preflight(ctx, ticket, comments, context);
+  const retrievedContext = findContext(root, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: prevPlan?.feature });
+  const retrievedIndex = findIndexContext(buildProjectIndex(root, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: retrievedContext });
+  const fitted = fitContextBudget(retrievedContext, retrievedIndex, cfg);
+  const contextManifestPath = saveContextManifest(cfg, id, 'plan', fitted.manifest);
+  const preflightResult = await preflight(ctx, ticket, comments, retrievedContext);
   if (await stopForPreflight(ctx, ticket, restoreKey, preflightResult)) return { status: 'need-info', reason: 'preflight' };
   const failure = state.get('plan-failures', {})[id];
   const promptFile = path.join(cfg.stateDir, 'prompts', `${id}-plan.md`);
   ensureDir(path.dirname(promptFile));
-  fs.writeFileSync(promptFile, buildPlanPrompt({ cfg, ticket, comments, context, prevPlan, artifactsDir, failure, preflight: preflightResult, indexContext }));
+  fs.writeFileSync(promptFile, buildPlanPrompt({ cfg, ticket, comments, context: fitted.context, prevPlan, artifactsDir, failure, preflight: preflightResult, indexContext: fitted.indexContext, contextManifestPath }));
 
   const ignoreRel = [path.relative(root, artifactsDir), path.relative(root, cfg.stateDir)].filter((p) => p && !p.startsWith('..'));
   const before = cfg.plan.snapshotGuard ? snapshot(root, cfg.plan.ignore, ignoreRel) : null;
