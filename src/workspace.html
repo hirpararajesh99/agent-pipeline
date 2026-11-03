@@ -358,7 +358,7 @@ async function openProject(id) {
                   contextButton.disabled = true; showStatus(contextStatus, 'Selecting relevant knowledge…', 'running'); contextBody.replaceChildren();
                   try { const preview = await api(`/api/projects/${id}/tickets/${encodeURIComponent(ticket.id)}/context?job=${job}`); const manifest = preview.manifest; showStatus(contextStatus, `Estimated ${manifest.estimatedTokens} of ${manifest.budgetTokens} retrieved-context tokens.`);
                     contextBody.append(element('p', preview.note));
-                    const selected = element('ul', '', 'context-list'); for (const entry of manifest.selected) selected.append(element('li', `${entry.type}: ${entry.source} — ${entry.reason} (about ${entry.estimatedTokens} tokens)`));
+                    const selected = element('ul', '', 'context-list'); for (const entry of manifest.selected) { const item = element('li', `${entry.type}: ${entry.source} — ${entry.reason} (about ${entry.estimatedTokens} tokens)`); if (entry.detail) item.append(element('pre', JSON.stringify(entry.detail, null, 2))); selected.append(item); }
                     contextBody.append(element('h3', `Selected sources (${manifest.selected.length})`), selected); if (!manifest.selected.length) selected.append(element('li', 'No matching sources were selected.'));
                     const omitted = element('ul', '', 'context-list'); for (const entry of manifest.omitted) omitted.append(element('li', `${entry.type}: ${entry.source} — ${entry.reason}`));
                     contextBody.append(element('h3', `Omitted by budget (${manifest.omitted.length})`), omitted); if (!manifest.omitted.length) omitted.append(element('li', 'None omitted by the budget.'));

@@ -12,6 +12,7 @@ import { preflightTicket } from './preflight.mjs';
 import { buildProjectIndex, findIndexContext, writeProjectIndex } from './indexer.mjs';
 import { buildPlanPrompt, buildPrompt } from './prompt.mjs';
 import { State } from './state.mjs';
+import { ticketBrainContext } from './brain-ticket-context.mjs';
 import { ensureDir, isSafeId, readJson, redact, render, sanitizeText, tail, writeJson } from './util.mjs';
 
 const MIN = 60000;
@@ -23,6 +24,14 @@ function saveContextManifest(cfg, ticketId, job, manifest) {
   const file = path.join(dir, `${ticketId}-${job}.json`);
   writeJson(file, { ticketId, job, generatedAt: new Date().toISOString(), ...manifest });
   return file;
+}
+
+async function contextUnavailable(ctx, ticket, restoreKey, error) {
+  const reason = redact(`Could not select Project Brain context: ${error.message}`, ctx.secrets).slice(0, 1000);
+  await ctx.tracker.setStatus(ticket.id, restoreKey);
+  ctx.state.set('inflight', null);
+  ctx.state.event('context-unavailable', { ticket: ticket.id, reason });
+  return { status: 'context-unavailable', reason };
 }
 
 /**
@@ -188,7 +197,10 @@ async function codingStage(ctx, ticket, provider) {
   const comments = preflightComments;
   const retrievedContext = findContext(workDir, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: plan?.feature, paths: plan?.files ?? [] });
   const retrievedIndex = findIndexContext(buildProjectIndex(workDir, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: retrievedContext });
-  const fitted = fitContextBudget(retrievedContext, retrievedIndex, cfg);
+  let brain;
+  try { brain = ticketBrainContext(cfg, workDir, { title: ticket.title, description: ticket.description, comments, paths: plan?.files ?? [] }); }
+  catch (error) { return contextUnavailable(ctx, ticket, restoreKey, error); }
+  const fitted = fitContextBudget(retrievedContext, retrievedIndex, cfg, brain);
   const contextManifestPath = saveContextManifest(cfg, id, 'code', fitted.manifest);
 
   const failure = state.get('failures', {})[id];
@@ -390,7 +402,10 @@ async function planStage(ctx, ticket, provider, { inline = false } = {}) {
 
   const retrievedContext = findContext(root, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: prevPlan?.feature });
   const retrievedIndex = findIndexContext(buildProjectIndex(root, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: retrievedContext });
-  const fitted = fitContextBudget(retrievedContext, retrievedIndex, cfg);
+  let brain;
+  try { brain = ticketBrainContext(cfg, root, { title: ticket.title, description: ticket.description, comments }); }
+  catch (error) { return contextUnavailable(ctx, ticket, restoreKey, error); }
+  const fitted = fitContextBudget(retrievedContext, retrievedIndex, cfg, brain);
   const contextManifestPath = saveContextManifest(cfg, id, 'plan', fitted.manifest);
   const preflightResult = await preflight(ctx, ticket, comments, retrievedContext);
   if (await stopForPreflight(ctx, ticket, restoreKey, preflightResult)) return { status: 'need-info', reason: 'preflight' };

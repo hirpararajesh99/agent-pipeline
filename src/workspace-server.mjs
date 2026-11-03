@@ -18,6 +18,7 @@ import { providerName, providerSpec } from './adapters/agents/index.mjs';
 import { commandExists } from './exec.mjs';
 import { ticketActions } from './ticket-actions.mjs';
 import { findContext, fitContextBudget } from './docs.mjs';
+import { ticketBrainContext } from './brain-ticket-context.mjs';
 import { buildProjectIndex, findIndexContext } from './indexer.mjs';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -208,8 +209,9 @@ export function createWorkspaceServer({ port = 3000, registryFile } = {}) {
             : cfg.plan.enabled ? state.get(`plan-${id}`) : null;
           const context = findContext(cfg.workspace, cfg, { id, title: ticket.title, description: ticket.description, comments, hintFeature: plan?.feature, paths: job === 'code' ? plan?.files ?? [] : [] });
           const index = findIndexContext(buildProjectIndex(cfg.workspace, cfg), cfg, { title: ticket.title, description: ticket.description, comments, featureContext: context });
-          const fitted = fitContextBudget(context, index, cfg);
-          return send(200, { ticket: id, job, manifest: fitted.manifest, note: 'Preview uses the current project workspace and ticket data. Actual context may differ, especially in a prepared worktree. The estimate covers retrieved knowledge, not the full prompt or output. The omissions list covers budget cuts after relevance and configured limits; it does not list every excluded source. Brain findings and decisions are not yet included.' });
+          const brain = ticketBrainContext(cfg, cfg.workspace, { title: ticket.title, description: ticket.description, comments, paths: job === 'code' ? plan?.files ?? [] : [] });
+          const fitted = fitContextBudget(context, index, cfg, brain);
+          return send(200, { ticket: id, job, manifest: fitted.manifest, note: 'Preview uses the current project workspace and ticket data. Actual context may differ, especially in a prepared worktree. The estimate covers retrieved knowledge, not the full prompt or output. The omissions list covers budget cuts after relevance and configured limits; it does not list every excluded source. Brain context uses the default run and active developer decisions.' });
         }
         if (resource === 'tickets' && req.method === 'POST') {
           const data = await requestBody(req);

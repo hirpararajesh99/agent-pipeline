@@ -14,6 +14,51 @@ import { preflightTicket } from '../src/preflight.mjs';
 import { validateArtifacts } from '../src/artifacts.mjs';
 import { buildProjectIndex, findImpact, findIndexContext, writeProjectIndex } from '../src/indexer.mjs';
 import { buildPrompt } from '../src/prompt.mjs';
+import { initBrain, analyzeBrain } from '../src/brain.mjs';
+import { recordReview } from '../src/brain-review.mjs';
+
+test('plan and code jobs include selected Brain knowledge in prompts and manifests', async (t) => {
+  env();
+  const s = setup(PLAN_ON, [T('T1', 'not started')]);
+  t.after(() => fs.rmSync(s.dir, { recursive: true, force: true }));
+  fs.writeFileSync(s.work('widget.js'), 'export const widget = true;\n');
+  initBrain(s.cfg);
+  const state = readJson(s.work('.project-brain/runs/default/state.json'));
+  writeJson(s.work('.project-brain/runs/default/submissions/01.json'), {
+    schemaVersion: 1, stage: '01', snapshotId: state.snapshotId, scope: state.scope, summary: 'Widget overview',
+    findings: [{ id: '01-widget', statement: 'Widget export uses a boolean', certainty: 'verified', verification: 'Read widget.js', evidence: [{ path: 'widget.js', hash: state.files['widget.js'], startLine: 1, endLine: 1 }] }], unknowns: [], limitations: [],
+  });
+  analyzeBrain(s.cfg);
+  recordReview(s.cfg, 'decision.add', { id: 'widget-rule', by: 'Developer', scope: '.', statement: 'Preserve widget compatibility', reason: 'Existing clients' });
+  const planned = await runOnce(s.cfg, {}, { job: 'plan' });
+  assert.equal(planned.results[0].status, 'planned');
+  for (const job of ['plan', 'code']) {
+    if (job === 'code') assert.equal((await runOnce(s.cfg, {}, { job })).status, 'pass');
+    const prompt = fs.readFileSync(path.join(s.cfg.stateDir, 'prompts', `T1-${job}.md`), 'utf8');
+    const manifest = readJson(path.join(s.cfg.stateDir, 'contexts', `T1-${job}.json`));
+    assert.match(prompt, /Widget export uses a boolean/);
+    assert.match(prompt, /Preserve widget compatibility/);
+    assert.ok(manifest.selected.some((x) => x.type === 'brain-finding'));
+    assert.ok(manifest.selected.some((x) => x.type === 'brain-decision'));
+  }
+});
+
+test('invalid Brain review history restores ticket status without starting an agent', async (t) => {
+  env();
+  for (const job of ['plan', 'code']) {
+    const s = setup(job === 'plan' ? PLAN_ON : {}, [T('T1', job === 'plan' ? 'not started' : 'code ready')]);
+    t.after(() => fs.rmSync(s.dir, { recursive: true, force: true }));
+    fs.mkdirSync(s.work('.project-brain', 'review'), { recursive: true });
+    fs.writeFileSync(s.work('.project-brain', 'review', 'records.json'), '{ invalid');
+    const run = await runOnce(s.cfg, {}, { job });
+    const result = job === 'plan' ? run.results[0] : run;
+    assert.equal(result.status, 'context-unavailable');
+    assert.match(result.reason, /Could not select Project Brain context/);
+    assert.equal(s.ticket().status, job === 'plan' ? 'not started' : 'code ready');
+    assert.equal(s.state('inflight'), null);
+    assert.equal(fs.existsSync(path.join(s.cfg.stateDir, 'prompts', `T1-${job}.md`)), false);
+  }
+});
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const node = `"${process.execPath}"`;

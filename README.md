@@ -354,7 +354,7 @@ agent-pipeline loop --job plan --interval 15
 | --- | --- |
 | Milestone 1: bootstrap and guided analysis | Implemented |
 | Milestone 2: freshness, refresh, decisions/conflicts and lesson lifecycle | Implemented |
-| Milestone 3: explainable context and incremental analysis | Next |
+| Milestone 3: explainable context and incremental analysis | In progress |
 | Milestone 4: measured legacy/modern .NET pilot | Planned |
 | Milestone 5: broader access and adoption | Planned |
 
@@ -363,7 +363,7 @@ Local validation includes 88 passing tests on Windows and offline package/CLI sm
 Important boundaries:
 
 - Findings and matching evidence hashes need human interpretation. Static relationships are incomplete; dynamic behavior, performance and scaling require further investigation.
-- Accepted Brain findings and developer decisions are not yet automatically selected into everyday ticket prompts with an explainable budget. Existing feature/index/lesson retrieval is available.
+- Relevant current findings from the default Brain run and active decisions without pinned references can be selected into ticket prompts under the context budget. Stale or unchecked findings and decisions with pinned references are excluded; open conflicts are reported but do not block jobs.
 - Snapshot and artifact checks detect covered changes and malformed output; they do not sandbox agents. Agent permissions control execution.
 - Review names are caller-supplied. Local hash-linked history is not authenticated or tamper-proof storage.
 - Credential filtering and display redaction are best-effort. Keep secrets out of prompts and knowledge; external agents may send inspected content to their providers.

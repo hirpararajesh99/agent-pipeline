@@ -169,7 +169,7 @@ export function findContext(root, cfg, { id, title, description, comments = [], 
 }
 
 /** Apply one deterministic budget to retrieved feature, lesson, and project-index context. */
-export function fitContextBudget(context, indexContext, cfg) {
+export function fitContextBudget(context, indexContext, cfg, brain = { findings: [], decisions: [], conflicts: [], gaps: [] }) {
   const budget = cfg.knowledge.maxPromptContextTokens;
   const candidates = [];
   for (const feature of context.features) {
@@ -203,11 +203,27 @@ export function fitContextBudget(context, indexContext, cfg) {
     label: `Relationship ${edge.from} -> ${edge.to}`, text: `${edge.from} ${edge.to}`,
     apply: (target) => target.index.edges.push(edge),
   });
+  for (const finding of brain.findings) candidates.push({
+    type: 'brain-finding', score: finding.score + 8, source: `default:${finding.id}`,
+    label: `Brain finding ${finding.id}`, text: JSON.stringify(finding),
+    apply: (target) => target.brain.findings.push(finding),
+  });
+  for (const decision of brain.decisions) candidates.push({
+    type: 'brain-decision', score: decision.score + 10, source: `decision:${decision.id}`,
+    label: `Developer decision ${decision.id}`, text: JSON.stringify(decision),
+    apply: (target) => target.brain.decisions.push(decision),
+  });
+  for (const conflict of brain.conflicts ?? []) candidates.push({
+    type: 'brain-conflict', score: conflict.score + 12, source: `conflict:${conflict.id}`,
+    label: `Unresolved conflict ${conflict.id}`, text: JSON.stringify(conflict),
+    apply: (target) => target.brain.conflicts.push(conflict),
+  });
 
   candidates.sort((a, b) => b.score - a.score || a.type.localeCompare(b.type) || a.source.localeCompare(b.source));
   const fitted = {
     features: context.features.map((f) => ({ ...f, sections: [], plans: [] })),
     lessons: [],
+    brain: { findings: [], decisions: [], conflicts: [] },
     index: { files: [], edges: [], totalFiles: indexContext.totalFiles },
   };
   const selected = [];
@@ -221,7 +237,8 @@ export function fitContextBudget(context, indexContext, cfg) {
     }
     item.apply(fitted);
     estimatedTokens += cost;
-    selected.push({ type: item.type, source: item.source, reason: `relevance score ${item.score}`, estimatedTokens: cost });
+    selected.push({ type: item.type, source: item.source, reason: `relevance score ${item.score}`, estimatedTokens: cost,
+      ...(['brain-finding', 'brain-decision', 'brain-conflict'].includes(item.type) ? { detail: JSON.parse(item.text) } : {}) });
   }
   fitted.features = fitted.features.filter((f) => f.sections.length || f.plans.length);
   fitted.selection = {
@@ -230,7 +247,7 @@ export function fitContextBudget(context, indexContext, cfg) {
     estimator: 'characters divided by three with formatting overhead; conservative estimate, not provider-exact',
     selected,
     omitted,
-    gaps: fitted.features.length ? [] : ['No relevant feature-document sections fit or matched the configured sources.'],
+    gaps: [...(fitted.features.length ? [] : ['No relevant feature-document sections fit or matched the configured sources.']), ...brain.gaps],
   };
   return { context: fitted, indexContext: fitted.index, manifest: fitted.selection };
 }

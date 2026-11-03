@@ -59,8 +59,17 @@ In **Tickets & runs**, review a ticket and select **Preview planning context** o
 budget omissions, and gaps without invoking an agent. This uses the current project
 workspace and current tracker data, not a prepared coding worktree; actual prompts
 can differ. The omissions list covers budget cuts after earlier relevance and
-configured limits, not every file excluded from retrieval. Accepted Brain findings
-and developer decisions are not yet automatically selected into ticket prompts.
+configured limits, not every file excluded from retrieval. Relevant current findings
+from the default run and active developer decisions without pinned references can be
+selected into ticket prompts. Findings are checked again against coding worktree files;
+stale and unchecked findings and decisions with pinned references are excluded and
+reported as gaps. Scoped decisions also need a matching planned file or selected finding
+evidence; when that relationship cannot be established they are excluded and reported.
+If Brain metadata cannot be read or validated, the ticket is returned to its prior
+status and the agent is not started. Open conflicts are presented with both positions when they fit the
+budget; the preview and prompt still warn when details are omitted. All open conflicts
+are candidates, even if their scope is unrelated to the ticket. They do not automatically stop a job.
+Acceptance validates the recorded analysis; it does not imply a human approved it.
 
 Existing knowledge layouts can be used by setting the docs paths in
 `pipeline.config.json`. For a project with `Product/TaskScheduler/README.md` and
@@ -316,9 +325,9 @@ best-effort redactor, which is not a secret detector. Initial scanning and each 
 check read repository files; incremental scanning and token budgeting are later milestones.
 Freshness uses the same source coverage, but reports changes instead of rejecting them.
 
-Synthesis is not automatically injected into normal ticket prompts in this milestone.
-Developers can direct their agent to the generated context; automatic task selection
-of the new findings belongs to the later retrieval milestone.
+The full synthesis is not automatically injected into normal ticket prompts. Selected
+findings from the default run and eligible developer decisions share the retrieved
+context budget, as described in the ticket preview above.
 
 ## Validation evidence
 

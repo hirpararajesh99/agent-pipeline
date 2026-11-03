@@ -1,8 +1,8 @@
 # Project Brain delivery roadmap
 
-Status (2026-10-27): foundation and Milestones 1–2 implemented, including finding
+Status: foundation and Milestones 1–2 implemented, including finding
 freshness, selective refresh, developer review history and lesson lifecycle.
-Milestones 3–5 remain planned. Current
+Milestone 3 is in progress; Milestones 4–5 remain planned. Current
 capabilities are tracked in the [feature README](../features/project-brain/README.md).
 Product requirements live in the [vision](PROJECT-BRAIN.md).
 
@@ -92,8 +92,10 @@ sections, effective lessons, and indexed source paths under `knowledge.maxPrompt
 Per-run manifests record approximate size, source paths, relevance scores, and budget
 omissions. The local workspace now offers an on-demand ticket-context preview and a
 basic accepted-finding browser with bounded source excerpts. Preview uses the current
-workspace, may differ from a coding worktree, and does not select Brain findings or
-decisions into prompts. The estimate is character-based; graph-neighbour expansion,
+workspace and may differ from a coding worktree. The default Brain run's relevant
+current findings, active decisions without pinned references, and unresolved conflict
+records share that budget. Conflicts include both positions and are reported as a gap
+even when their details do not fit. Stale and unchecked findings are excluded. The estimate is character-based; graph-neighbour expansion,
 incremental analysis reuse, and provider-exact usage measurement remain outstanding.
 
 Acceptance criteria:

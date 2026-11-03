@@ -11,6 +11,70 @@ import { refreshBrain } from '../src/brain-refresh.mjs';
 import { brainReview, recordReview, reviewSnapshot, runReviewSnapshot } from '../src/brain-review.mjs';
 import { atomicWrite, readJson, writeJson } from '../src/util.mjs';
 import { acquireLock } from '../src/lock.mjs';
+import { ticketBrainContext } from '../src/brain-ticket-context.mjs';
+import { fitContextBudget } from '../src/docs.mjs';
+import { buildPlanPrompt } from '../src/prompt.mjs';
+
+test('ticket context uses current accepted Brain evidence and active decisions within the budget', (t) => {
+  const s = setup(t); initBrain(s.cfg); s.submission('01'); analyzeBrain(s.cfg);
+  recordReview(s.cfg, 'decision.add', { id: 'demo-rule', by: 'Developer', scope: '.', statement: 'Preserve Demo namespace', reason: 'Compatibility' });
+  const query = { title: 'Update Demo namespace', description: 'Review namespace', comments: [] };
+  const selected = ticketBrainContext(s.cfg, s.root, query);
+  assert.equal(selected.findings.length, 1);
+  assert.equal(selected.decisions.length, 1);
+  const base = { features: [], lessons: [] }, index = { files: [], edges: [], totalFiles: 0 };
+  const fitted = fitContextBudget(base, index, s.cfg, selected);
+  assert.ok(fitted.manifest.selected.some((x) => x.type === 'brain-finding' && x.detail.id === '01-entry'));
+  assert.ok(fitted.manifest.selected.some((x) => x.type === 'brain-decision'));
+  const prompt = buildPlanPrompt({ cfg: { ...s.cfg, jobs: { plan: '' } }, ticket: { id: 'T1', title: query.title, description: query.description }, context: fitted.context, artifactsDir: s.root });
+  assert.match(prompt, /Source declares the Demo namespace/);
+  assert.match(prompt, /Preserve Demo namespace/);
+  const tiny = fitContextBudget(base, index, { ...s.cfg, knowledge: { maxPromptContextTokens: 1 } }, selected);
+  assert.equal(tiny.context.brain.findings.length, 0);
+  assert.equal(tiny.manifest.omitted.filter((x) => x.type.startsWith('brain-')).length, 2);
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-worktree-'));
+  t.after(() => fs.rmSync(other, { recursive: true, force: true }));
+  assert.equal(ticketBrainContext(s.cfg, other, query).findings.length, 0);
+  s.put(s.file, 'changed');
+  const stale = ticketBrainContext(s.cfg, s.root, query);
+  assert.equal(stale.findings.length, 0);
+  assert.match(stale.gaps.join(' '), /stale or unchecked/);
+});
+
+test('ticket context exposes both positions of open conflicts and reports budget omissions', (t) => {
+  const s = setup(t);
+  recordReview(s.cfg, 'conflict.add', { id: 'namespace-conflict', by: 'Reviewer', owner: 'Reviewer', scope: 'App',
+    summary: 'Demo namespace compatibility', left: 'Preserve the current Demo namespace', right: 'Rename the Demo namespace' });
+  const query = { title: 'Update Demo namespace', description: 'Review compatibility' };
+  const brain = ticketBrainContext(s.cfg, s.root, query);
+  assert.equal(brain.conflicts.length, 1);
+  const base = { features: [], lessons: [] }, index = { files: [], edges: [], totalFiles: 0 };
+  const fitted = fitContextBudget(base, index, s.cfg, brain);
+  const item = fitted.manifest.selected.find((entry) => entry.type === 'brain-conflict');
+  assert.equal(item.detail.left, 'Preserve the current Demo namespace');
+  assert.equal(item.detail.right, 'Rename the Demo namespace');
+  const prompt = buildPlanPrompt({ cfg: { ...s.cfg, jobs: { plan: '' } }, ticket: { id: 'T1', ...query }, context: fitted.context, artifactsDir: s.root });
+  assert.match(prompt, /do not treat either side of a conflict as settled/);
+  assert.match(prompt, /Preserve the current Demo namespace/);
+  assert.match(prompt, /Rename the Demo namespace/);
+  const tiny = fitContextBudget(base, index, { ...s.cfg, knowledge: { maxPromptContextTokens: 1 } }, brain);
+  assert.equal(tiny.context.brain.conflicts.length, 0);
+  assert.ok(tiny.manifest.omitted.some((entry) => entry.type === 'brain-conflict'));
+  assert.match(tiny.manifest.gaps.join(' '), /unresolved conflict/);
+  recordReview(s.cfg, 'conflict.resolve', { id: 'namespace-conflict', by: 'Reviewer', reason: 'Reviewed compatibility', resolution: 'Preserve the current namespace' });
+  assert.equal(ticketBrainContext(s.cfg, s.root, query).conflicts.length, 0);
+});
+
+test('scoped decisions require evidence or planned files in their scope', (t) => {
+  const s = setup(t);
+  recordReview(s.cfg, 'decision.add', { id: 'billing-rule', by: 'Developer', scope: 'Billing', statement: 'Preserve invoice format', reason: 'Compatibility' });
+  const query = { title: 'Update invoice format', description: 'Review formatting' };
+  const unrelated = ticketBrainContext(s.cfg, s.root, { ...query, paths: ['App/Invoice.cs'] });
+  assert.equal(unrelated.decisions.length, 0);
+  assert.match(unrelated.gaps.join(' '), /scope could not be matched/);
+  const relevant = ticketBrainContext(s.cfg, s.root, { ...query, paths: ['Billing/Invoice.cs'] });
+  assert.equal(relevant.decisions[0].id, 'billing-rule');
+});
 
 function setup(t, modern = false) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-test-'));
